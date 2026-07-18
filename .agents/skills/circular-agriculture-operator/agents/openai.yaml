@@ -1,0 +1,4 @@
+interface:
+  display_name: "Circular Agriculture Operator"
+  short_description: "Best default skill for circular agri research-to-product work"
+  default_prompt: "Use $circular-agriculture-operator to recurse from circular agriculture research to the best software or application opportunity, ranking options by evidence, feasibility, market pull, and software leverage."
