@@ -373,27 +373,27 @@ function renderRecommendations() {
     <div class="crop-list">
       ${CROPS.map((c, i) => `
       <div class="crop-card" style="animation-delay: ${i*0.08}s" data-action="detail" data-crop="${c.name}">
-        <div class="crop-icon-wrap" style="background: ${c.bg}">${c.emoji}</div>
+        <div class="crop-emoji" style="background:${c.bg}">${c.emoji}</div>
         <div class="crop-info">
           <div class="crop-name">${c.name} <span class="crop-local">(${c.local})</span></div>
-          <div class="crop-stats">
-            <span class="crop-stat-tag">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          <div class="crop-meta">
+            <span class="crop-meta-item">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:2px"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
               ${c.month}
             </span>
-            <span class="crop-stat-tag">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
-              ${c.price || c.profit.split('/')[0]}
+            <span class="crop-meta-item">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:1px"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+              ${c.profit.split('/')[0]}
             </span>
           </div>
         </div>
-        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:8px;">
-          <div class="badge ${c.badge}">${c.demand}</div>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#aabdae" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+        <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0;">
+          <span class="crop-badge ${c.badge}">${c.demand}</span>
+          <svg class="crop-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
         </div>
       </div>`).join('')}
     </div>
-    <div style="height:30px"></div>
+    <div style="height:32px"></div>
   </div>`
 }
 
