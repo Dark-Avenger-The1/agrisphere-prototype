@@ -100,3 +100,31 @@ export const addMarketListing = (listing) => {
   }
   return listings
 }
+
+// ── Scan history (waste-to-value scanner + crop risk scanner) ──────────────
+// Capped at 3 entries each — adding a 4th silently discards the oldest.
+// type is 'waste' or 'crop', each stored under its own key.
+
+const HISTORY_LIMIT = 3
+const historyKey = (type) => `agrisphere:scanHistory:${type}`
+
+export const getScanHistory = (type) => {
+  try {
+    const raw = localStorage.getItem(historyKey(type))
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
+}
+
+export const addScanHistory = (type, entry) => {
+  const history = getScanHistory(type)
+  history.unshift({ ...entry, scannedAt: Date.now() })
+  const trimmed = history.slice(0, HISTORY_LIMIT)
+  try {
+    localStorage.setItem(historyKey(type), JSON.stringify(trimmed))
+  } catch {
+    // ignore
+  }
+  return trimmed
+}

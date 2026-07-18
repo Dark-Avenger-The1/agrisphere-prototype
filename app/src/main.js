@@ -1,6 +1,6 @@
 import './style.css'
 import { apiFetch, apiPost, getUserLocation, DEFAULT_LOCATION } from './config.js'
-import { getCached, setCached, seedMarketListings, getMarketListings, migrateMarketListings, addMarketListing } from './storage.js'
+import { getCached, setCached, seedMarketListings, getMarketListings, migrateMarketListings, addMarketListing, getScanHistory, addScanHistory } from './storage.js'
 import { startCamera, stopCamera, captureFrame, fileToBase64 } from './camera.js'
 import { renderSellerMap, destroySellerMap, renderAllSellersMap } from './map.js'
 
@@ -414,6 +414,7 @@ async function loadCropDetail() {
   try {
     const cropName = pendingScanCropName || 'Mango'
     currentCrop = await fetchCropDetail(cropName)
+    addScanHistory('crop', currentCrop)
   } catch (err) {
     cropDetailError = err.message || 'Failed to load crop detail'
   } finally {
@@ -809,6 +810,7 @@ function renderScanner() {
       <input type="file" id="file-upload" accept="image/*" style="display:none;">
     </div>
     <div id="scan-result-area"></div>
+    <div id="scan-history-waste"></div>
     <div style="height:16px"></div>
   </div>`
 }
@@ -822,6 +824,7 @@ async function bindScannerEvents() {
   document.getElementById('btn-scan')?.addEventListener('click', () => startScan(mode))
   document.getElementById('btn-upload')?.addEventListener('click', () => document.getElementById('file-upload').click())
   document.getElementById('file-upload')?.addEventListener('change', handleWasteUpload)
+  renderScanHistorySection('waste')
 }
 
 // Shows/hides the live video vs. the placeholder icon based on whether a
@@ -920,7 +923,9 @@ async function runIdentifyAndRender(base64, mimeType, overlay, expectedCategory)
     }
 
     wasteScanResult = await fetchWasteConversion(result.name)
+    addScanHistory('waste', wasteScanResult)
     renderScanResult()
+    renderScanHistorySection('waste')
   } catch (err) {
     area.innerHTML = `<div style="padding:20px; text-align:center; color:#c0392b; font-size:14px;">⚠️ ${err.message || 'Scan failed. Please try again.'}</div>`
   } finally {
@@ -1018,6 +1023,7 @@ function renderScannerCrop() {
       <input type="file" id="file-upload-crop" accept="image/*" style="display:none;">
     </div>
     <div id="scan-result-area-crop"></div>
+    <div id="scan-history-crop"></div>
     <div style="height:16px"></div>
   </div>`
 }
@@ -1031,6 +1037,7 @@ async function bindScannerCropEvents() {
   document.getElementById('btn-scan-crop')?.addEventListener('click', () => startScanCrop(mode))
   document.getElementById('btn-upload-crop')?.addEventListener('click', () => document.getElementById('file-upload-crop').click())
   document.getElementById('file-upload-crop')?.addEventListener('change', handleCropUpload)
+  renderScanHistorySection('crop')
 }
 
 async function startScanCrop(mode) {
@@ -1115,6 +1122,67 @@ async function runCropIdentifyAndRender(base64, mimeType, overlay) {
     overlay.remove()
     scanState = 'result'
   }
+}
+
+// ── Scan History (shared by both scanner screens) ──────────────────────────
+// Tapping a history card reopens the result through the SAME render path a
+// live scan uses — renderScanResult() for waste, navigateTo('detail', ...)
+// for crop — just fed from localStorage instead of a fresh AI call.
+function renderScanHistorySection(type) {
+  const containerId = type === 'waste' ? 'scan-history-waste' : 'scan-history-crop'
+  const container = document.getElementById(containerId)
+  if (!container) return
+
+  const history = getScanHistory(type)
+  if (history.length === 0) {
+    container.innerHTML = ''
+    return
+  }
+
+  container.innerHTML = `
+    <p style="color:#fff; font-size:13px; font-weight:600; margin:18px 0 8px;">Recent scans</p>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      ${history.map((entry, i) => renderHistoryCard(type, entry, i)).join('')}
+    </div>
+  `
+
+  container.querySelectorAll('[data-history-index]').forEach(card => {
+    card.addEventListener('click', () => {
+      const idx = parseInt(card.dataset.historyIndex, 10)
+      const entry = history[idx]
+      if (type === 'waste') {
+        wasteScanResult = entry
+        renderScanResult()
+      } else {
+        currentCrop = entry
+        navigateTo('detail', entry)
+      }
+    })
+  })
+}
+
+function renderHistoryCard(type, entry, index) {
+  if (type === 'waste') {
+    const top = (entry.wasteToValue || []).find(i => i.best) || (entry.wasteToValue || [])[0]
+    return `
+      <div data-history-index="${index}" style="background:rgba(255,255,255,0.06); border-radius:12px; padding:10px 12px; display:flex; align-items:center; gap:10px; cursor:pointer;">
+        <span style="font-size:18px;">🌾</span>
+        <div style="flex:1; min-width:0;">
+          <div style="color:#fff; font-size:13px; font-weight:600;">${entry.wasteType}</div>
+          <div style="color:#9db3a5; font-size:11px;">${top ? 'Best: ' + top.name : 'No suggestions saved'}</div>
+        </div>
+        <div style="color:#8fd4a8; font-size:12px; font-weight:600; flex-shrink:0;">${top ? top.estimatedPrice : ''}</div>
+      </div>`
+  }
+  return `
+    <div data-history-index="${index}" style="background:rgba(255,255,255,0.06); border-radius:12px; padding:10px 12px; display:flex; align-items:center; gap:10px; cursor:pointer;">
+      <span style="font-size:18px;">${cropEmoji(entry.name)}</span>
+      <div style="flex:1; min-width:0;">
+        <div style="color:#fff; font-size:13px; font-weight:600;">${entry.name}</div>
+        <div style="color:#9db3a5; font-size:11px;">${entry.demandLevel || entry.bestPlantMonth || ''}</div>
+      </div>
+      <div style="color:#8fd4a8; font-size:12px; font-weight:600; flex-shrink:0;">${entry.expectedRevenuePerHa || ''}</div>
+    </div>`
 }
 
 // ── Render: Marketplace ───────────────────────────────────────────────────────
