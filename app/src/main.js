@@ -1,6 +1,6 @@
 import './style.css'
 import { apiFetch, apiPost, getUserLocation, DEFAULT_LOCATION } from './config.js'
-import { getCached, setCached, seedMarketListings, getMarketListings, migrateMarketListings, addMarketListing } from './storage.js'
+import { getCached, setCached, seedMarketListings, getMarketListings, migrateMarketListings, addMarketListing, getScanHistory, addScanHistory } from './storage.js'
 import { startCamera, stopCamera, captureFrame, fileToBase64 } from './camera.js'
 import { renderSellerMap, destroySellerMap, renderAllSellersMap } from './map.js'
 
@@ -105,7 +105,8 @@ function demandBadgeClass(level) {
 let currentView = 'home'
 let currentCrop = null          // full crop object rendered on the detail screen
 let currentMarketItem = null
-let currentAIChatTopic = null
+let chatMessages = []            // in-memory only — resets every time you leave/re-enter AI Chat
+let pendingChatAutoPrompt = null // set by card taps (scan results, crop detail) before navigating to ai-chat
 let currentNewsIdx = 0
 let newsInterval = null
 let scanState = 'idle' // idle | scanning | result
@@ -168,6 +169,10 @@ async function fetchWasteConversion(wasteType) {
     wasteType,
     location: userLocation.location,
   })
+}
+
+async function askAI(question) {
+  return apiPost('/trends/ask', { question, location: userLocation.location })
 }
 
 // ── App Init ──────────────────────────────────────────────────────────────────
@@ -241,6 +246,7 @@ async function navigateTo(view, data = null) {
       await loadRecommendations()
       break
     case 'ai-chat':
+      chatMessages = []
       app.innerHTML = renderAIChat()
       break
     case 'scanner':
@@ -287,6 +293,7 @@ async function navigateTo(view, data = null) {
   if (view === 'market-chat') bindMarketChatEvents()
   if (view === 'market-detail') bindMarketDetailEvents()
   if (view === 'market-map') bindMarketMapEvents()
+  if (view === 'ai-chat') await bindAIChatEvents()
   bindViewEvents()
   if (view === 'recommendations') bindRecommendationFilters()
 }
@@ -561,6 +568,7 @@ async function loadCropDetail() {
   try {
     const cropName = pendingScanCropName || 'Mango'
     currentCrop = await fetchCropDetail(cropName)
+    addScanHistory('crop', currentCrop)
   } catch (err) {
     cropDetailError = err.message || 'Failed to load crop detail'
   } finally {
@@ -665,6 +673,9 @@ function renderDetail() {
       </div>
       <button class="detail-action-btn" data-action="marketplace">
         🛒 Find Buyers &amp; Create Listing
+      </button>
+      <button class="detail-action-btn" data-action="ai-chat" data-prompt="Give me practical tips for growing ${c.name} in ${c.location || userLocation.location}. What should I watch out for?" style="background:#fff; color:#1d6b35; border:1.5px solid #1d6b35; margin-top:10px;">
+        💬 Ask AgriAI About ${c.name}
       </button>
       <div style="height:24px"></div>
     </div>
@@ -835,38 +846,31 @@ function renderHome() {
 }
 
 // ── Render: AI Chat ───────────────────────────────────────────────────────────
-function renderAIChat() {
-  const topic = currentAIChatTopic;
-
-  const topicKnowledge = {
-    'Biochar': {
-      reply: `Great choice! <strong>Biochar</strong> is one of the most profitable ways to use Rice Straw.<br><br>
-        <strong>📋 How to produce it:</strong><br>
-        1. <strong>Dry</strong> the rice straw for 2–3 days under direct sunlight.<br>
-        2. <strong>Pyrolize</strong> it in a low-oxygen kiln or metal drum (350–500°C) for 3–4 hours.<br>
-        3. <strong>Crush &amp; sieve</strong> the resulting charcoal into uniform particles.<br>
-        4. <strong>Bag &amp; sell</strong> to organic farms and nurseries.<br><br>
-        <strong>💡 Pro Tip:</strong> Biochar from rice straw has a high silica content — ideal for paddy farms.`,
-    },
-  };
-
-  const knowledge = topicKnowledge[topic] || null;
-
-  const userMsgHtml = topic ? `
-      <div style="display:flex; gap:12px; align-items:flex-end; flex-direction:row-reverse; margin-top:8px;">
+function chatBubble(role, html) {
+  if (role === 'user') {
+    return `
+      <div style="display:flex; gap:12px; align-items:flex-end; flex-direction:row-reverse;">
         <div style="background:#1d6b35; padding:12px 16px; border-radius:16px 16px 4px 16px; box-shadow:0 2px 8px rgba(29,107,53,0.1); max-width:85%; font-size:14px; color:#fff; line-height:1.5;">
-          Tell me about <strong>${topic}</strong> — how can I produce it?
+          ${html}
         </div>
-      </div>
-      <div style="display:flex; gap:12px; margin-top:12px;">
+      </div>`
+  }
+  return `
+      <div style="display:flex; gap:12px;">
         <div style="width:32px; height:32px; border-radius:50%; background:#1d6b35; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"></path></svg>
         </div>
-        <div style="background:#fff; padding:14px 16px; border-radius:4px 16px 16px 16px; box-shadow:0 2px 12px rgba(0,0,0,0.05); max-width:88%; font-size:13.5px; color:#1a3320; line-height:1.65;">
-          ${knowledge ? knowledge.reply : `Great question! <strong>${topic}</strong> is an excellent way to add value to agricultural waste. Check the Marketplace to connect with buyers nearby!`}
+        <div style="background:#fff; padding:12px 16px; border-radius:4px 16px 16px 16px; box-shadow:0 2px 8px rgba(0,0,0,0.03); max-width:88%; font-size:13.5px; color:#1a3320; line-height:1.6;">
+          ${html}
         </div>
-      </div>
-  ` : '';
+      </div>`
+}
+
+function renderAIChat() {
+  const bubbles = [
+    chatBubble('assistant', `Hello! I'm AgriAI. How can I help you today?`),
+    ...chatMessages.map(m => chatBubble(m.role, m.role === 'user' ? escapeHtml(m.text) : m.text)),
+  ].join('<div style="height:4px"></div>')
 
   return `
   <div class="view" style="background:#f4f7f5; display:flex; flex-direction:column; min-height:100%;">
@@ -874,24 +878,61 @@ function renderAIChat() {
       <h2 style="font-size:24px; font-weight:800;">AgriAI Assistant</h2>
       <div style="font-size:13px; color:rgba(255,255,255,0.7); margin-top:4px;">Ask me anything about farming & waste</div>
     </div>
-    <div style="flex:1; padding:20px; overflow-y:auto; display:flex; flex-direction:column; gap:16px;">
-      <div style="display:flex; gap:12px;">
-        <div style="width:32px; height:32px; border-radius:50%; background:#1d6b35; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"></path></svg>
-        </div>
-        <div style="background:#fff; padding:12px 16px; border-radius:4px 16px 16px 16px; box-shadow:0 2px 8px rgba(0,0,0,0.03); max-width:85%; font-size:14px; color:#1a3320; line-height:1.5;">
-          Hello! I'm AgriAI. How can I help you today?
-        </div>
-      </div>
-      ${userMsgHtml}
+    <div id="chat-body" style="flex:1; padding:20px; overflow-y:auto; display:flex; flex-direction:column; gap:16px;">
+      ${bubbles}
     </div>
     <div style="background:#fff; border-top:1px solid #e0ede4; padding:16px 20px 30px; display:flex; align-items:center; gap:12px; flex-shrink:0;">
-      <input type="text" placeholder="Ask AgriAI..." style="flex:1; background:#f4f7f5; border:1px solid #d1dfd5; padding:14px 16px; border-radius:24px; font-size:15px; color:#0a1a0f; outline:none;" />
-      <button style="width:44px; height:44px; border-radius:50%; background:#1d6b35; border:none; display:flex; align-items:center; justify-content:center; color:#fff; cursor:pointer; flex-shrink:0; box-shadow:0 4px 12px rgba(29,107,53,0.3);" onclick="showToast('💬 AI Chat is in demo mode.')">
+      <input type="text" id="chat-input" placeholder="Ask AgriAI..." style="flex:1; background:#f4f7f5; border:1px solid #d1dfd5; padding:14px 16px; border-radius:24px; font-size:15px; color:#0a1a0f; outline:none;" />
+      <button id="chat-send" style="width:44px; height:44px; border-radius:50%; background:#1d6b35; border:none; display:flex; align-items:center; justify-content:center; color:#fff; cursor:pointer; flex-shrink:0; box-shadow:0 4px 12px rgba(29,107,53,0.3);">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transform:translateX(-1px);"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
       </button>
     </div>
   </div>`
+}
+
+async function bindAIChatEvents() {
+  const input = document.getElementById('chat-input')
+  const sendBtn = document.getElementById('chat-send')
+  const body = document.getElementById('chat-body')
+
+  const scrollToBottom = () => { if (body) body.scrollTop = body.scrollHeight }
+  scrollToBottom()
+
+  const send = async (question) => {
+    const text = (question ?? input.value).trim()
+    if (!text) return
+
+    input.value = ''
+    input.disabled = true
+    sendBtn.disabled = true
+
+    chatMessages.push({ role: 'user', text })
+    body.insertAdjacentHTML('beforeend', '<div style="height:4px"></div>' + chatBubble('user', escapeHtml(text)))
+    body.insertAdjacentHTML('beforeend', `<div id="chat-loading" style="height:4px"></div>${chatBubble('assistant', '<em style="color:#8aa691;">AgriAI is thinking...</em>')}`)
+    scrollToBottom()
+
+    try {
+      const result = await askAI(text)
+      chatMessages.push({ role: 'assistant', text: escapeHtml(result.answer).replace(/\n/g, '<br>') })
+    } catch (err) {
+      chatMessages.push({ role: 'assistant', text: `⚠️ ${escapeHtml(err.message || 'Something went wrong, please try again.')}` })
+    }
+
+    // Re-render the whole thread so the "thinking..." bubble is replaced cleanly
+    document.getElementById('app').innerHTML = renderAIChat()
+    await bindAIChatEvents()
+  }
+
+  sendBtn.addEventListener('click', () => send())
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') send() })
+  input.disabled = false
+  sendBtn.disabled = false
+
+  if (pendingChatAutoPrompt) {
+    const autoPrompt = pendingChatAutoPrompt
+    pendingChatAutoPrompt = null
+    await send(autoPrompt)
+  }
 }
 
 // ── Render + Load: Scanner (Waste to Value) ────────────────────────────────────
@@ -923,6 +964,7 @@ function renderScanner() {
       <input type="file" id="file-upload" accept="image/*" style="display:none;">
     </div>
     <div id="scan-result-area"></div>
+    <div id="scan-history-waste"></div>
     <div style="height:16px"></div>
   </div>`
 }
@@ -936,6 +978,7 @@ async function bindScannerEvents() {
   document.getElementById('btn-scan')?.addEventListener('click', () => startScan(mode))
   document.getElementById('btn-upload')?.addEventListener('click', () => document.getElementById('file-upload').click())
   document.getElementById('file-upload')?.addEventListener('change', handleWasteUpload)
+  renderScanHistorySection('waste')
 }
 
 // Shows/hides the live video vs. the placeholder icon based on whether a
@@ -1034,7 +1077,9 @@ async function runIdentifyAndRender(base64, mimeType, overlay, expectedCategory)
     }
 
     wasteScanResult = await fetchWasteConversion(result.name)
+    addScanHistory('waste', wasteScanResult)
     renderScanResult()
+    renderScanHistorySection('waste')
   } catch (err) {
     area.innerHTML = `<div style="padding:20px; text-align:center; color:#c0392b; font-size:14px;">⚠️ ${err.message || 'Scan failed. Please try again.'}</div>`
   } finally {
@@ -1069,7 +1114,7 @@ function renderScanResult() {
     </div>
     <div class="scan-panel" id="panel-wtv">
       ${r.wasteToValue.map(item => `
-      <div class="scan-panel-row" data-action="ai-chat" data-topic="${item.name}">
+      <div class="scan-panel-row" data-action="ai-chat" data-prompt="How do I turn ${r.wasteType} into ${item.name}? Give me a simple step-by-step process, plus tips for selling it in ${userLocation.location}.">
         <span class="scan-panel-emoji">${item.best ? '⭐' : '♻️'}</span>
         <div class="scan-panel-info">
           <div class="scan-panel-title">${item.name} ${item.best ? '<span class="scan-best-tag">BEST</span>' : ''}</div>
@@ -1080,7 +1125,7 @@ function renderScanResult() {
     </div>
     <div class="scan-panel hidden" id="panel-pp">
       ${r.potentialProducts.map(item => `
-      <div class="scan-panel-row" data-action="ai-chat" data-topic="${item.name}">
+      <div class="scan-panel-row" data-action="ai-chat" data-prompt="What's the best way to convert ${r.wasteType} into ${item.name} as a finished product? Explain the process and where I could sell it in ${userLocation.location}.">
         <span class="scan-panel-emoji">📦</span>
         <div class="scan-panel-info">
           <div class="scan-panel-title">${item.name}</div>
@@ -1132,6 +1177,7 @@ function renderScannerCrop() {
       <input type="file" id="file-upload-crop" accept="image/*" style="display:none;">
     </div>
     <div id="scan-result-area-crop"></div>
+    <div id="scan-history-crop"></div>
     <div style="height:16px"></div>
   </div>`
 }
@@ -1145,6 +1191,7 @@ async function bindScannerCropEvents() {
   document.getElementById('btn-scan-crop')?.addEventListener('click', () => startScanCrop(mode))
   document.getElementById('btn-upload-crop')?.addEventListener('click', () => document.getElementById('file-upload-crop').click())
   document.getElementById('file-upload-crop')?.addEventListener('change', handleCropUpload)
+  renderScanHistorySection('crop')
 }
 
 async function startScanCrop(mode) {
@@ -1229,6 +1276,67 @@ async function runCropIdentifyAndRender(base64, mimeType, overlay) {
     overlay.remove()
     scanState = 'result'
   }
+}
+
+// ── Scan History (shared by both scanner screens) ──────────────────────────
+// Tapping a history card reopens the result through the SAME render path a
+// live scan uses — renderScanResult() for waste, navigateTo('detail', ...)
+// for crop — just fed from localStorage instead of a fresh AI call.
+function renderScanHistorySection(type) {
+  const containerId = type === 'waste' ? 'scan-history-waste' : 'scan-history-crop'
+  const container = document.getElementById(containerId)
+  if (!container) return
+
+  const history = getScanHistory(type)
+  if (history.length === 0) {
+    container.innerHTML = ''
+    return
+  }
+
+  container.innerHTML = `
+    <p style="color:#fff; font-size:13px; font-weight:600; margin:18px 0 8px;">Recent scans</p>
+    <div style="display:flex; flex-direction:column; gap:8px;">
+      ${history.map((entry, i) => renderHistoryCard(type, entry, i)).join('')}
+    </div>
+  `
+
+  container.querySelectorAll('[data-history-index]').forEach(card => {
+    card.addEventListener('click', () => {
+      const idx = parseInt(card.dataset.historyIndex, 10)
+      const entry = history[idx]
+      if (type === 'waste') {
+        wasteScanResult = entry
+        renderScanResult()
+      } else {
+        currentCrop = entry
+        navigateTo('detail', entry)
+      }
+    })
+  })
+}
+
+function renderHistoryCard(type, entry, index) {
+  if (type === 'waste') {
+    const top = (entry.wasteToValue || []).find(i => i.best) || (entry.wasteToValue || [])[0]
+    return `
+      <div data-history-index="${index}" style="background:rgba(255,255,255,0.06); border-radius:12px; padding:10px 12px; display:flex; align-items:center; gap:10px; cursor:pointer;">
+        <span style="font-size:18px;">🌾</span>
+        <div style="flex:1; min-width:0;">
+          <div style="color:#fff; font-size:13px; font-weight:600;">${entry.wasteType}</div>
+          <div style="color:#9db3a5; font-size:11px;">${top ? 'Best: ' + top.name : 'No suggestions saved'}</div>
+        </div>
+        <div style="color:#8fd4a8; font-size:12px; font-weight:600; flex-shrink:0;">${top ? top.estimatedPrice : ''}</div>
+      </div>`
+  }
+  return `
+    <div data-history-index="${index}" style="background:rgba(255,255,255,0.06); border-radius:12px; padding:10px 12px; display:flex; align-items:center; gap:10px; cursor:pointer;">
+      <span style="font-size:18px;">${cropEmoji(entry.name)}</span>
+      <div style="flex:1; min-width:0;">
+        <div style="color:#fff; font-size:13px; font-weight:600;">${entry.name}</div>
+        <div style="color:#9db3a5; font-size:11px;">${entry.demandLevel || entry.bestPlantMonth || ''}</div>
+      </div>
+      <div style="color:#8fd4a8; font-size:12px; font-weight:600; flex-shrink:0;">${entry.expectedRevenuePerHa || ''}</div>
+    </div>`
 }
 
 // ── Render: Marketplace ───────────────────────────────────────────────────────
@@ -1681,8 +1789,7 @@ function bindViewEvents() {
         return
       }
       if (action === 'ai-chat') {
-        const topic = el.dataset.topic
-        currentAIChatTopic = topic || null
+        pendingChatAutoPrompt = el.dataset.prompt || null
         navigateTo('ai-chat')
         return
       }
