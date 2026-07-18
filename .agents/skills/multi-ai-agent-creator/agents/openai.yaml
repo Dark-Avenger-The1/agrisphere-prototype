@@ -1,0 +1,4 @@
+interface:
+  display_name: "Multi-AI Agent Creator"
+  short_description: "Create instruction packs for coding agents"
+  default_prompt: "Use $multi-ai-agent-creator to generate a shared instruction pack for Codex, Devin, Antigravity, opencode, and Cursor."

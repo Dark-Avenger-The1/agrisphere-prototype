@@ -1,0 +1,4 @@
+interface:
+  display_name: "Circular Agriculture Research"
+  short_description: "Research circular agri opportunities"
+  default_prompt: "Use $circular-agriculture-research to create an evidence-backed research brief on circular agribusiness opportunities in my target market."

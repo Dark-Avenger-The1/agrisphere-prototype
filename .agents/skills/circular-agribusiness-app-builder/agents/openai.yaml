@@ -1,0 +1,4 @@
+interface:
+  display_name: "Circular Agribusiness App Builder"
+  short_description: "Turn circular agri research into apps"
+  default_prompt: "Use $circular-agribusiness-app-builder to turn my circular agriculture research into a practical software product plan or working prototype."

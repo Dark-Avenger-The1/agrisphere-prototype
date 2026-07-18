@@ -710,7 +710,7 @@ function renderHome() {
   <div class="view">
     <div class="home-header">
       <div class="home-title-wrapper">
-        <img src="/favicon.svg" alt="AgriSphere" class="home-logo" />
+        <img src="/logo.png" alt="AgriSphere" class="home-logo" />
         <h1>AgriSphere</h1>
       </div>
       <div class="home-location">
@@ -811,6 +811,7 @@ function renderHome() {
       </div>
     </div>
 
+    <!-- Today's Opportunity Card -->
     <div class="opportunity-card" id="opp-card" data-action="recommendations">
       <div class="opp-top">
         <div class="opp-badge">
@@ -1753,6 +1754,76 @@ function renderProfile() {
   </div>`
 }
 
+// ── Render: Detail ────────────────────────────────────────────────────────────
+function renderDetail() {
+  const c = currentCrop || CROPS[0]
+  return `
+  <div class="view">
+    <div class="view-header">
+      <button class="back-btn" data-action="recommendations">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <h2>Crop Details</h2>
+    </div>
+    <div style="margin:0 20px">
+      <div class="detail-hero">${c.emoji}</div>
+    </div>
+    <div class="detail-body">
+      <div class="detail-name">${c.name} <span style="font-size:14px;font-weight:400;color:rgba(255,255,255,0.45)">(${c.local})</span></div>
+      <div class="detail-local">${c.desc}</div>
+      <div class="detail-cards">
+        <div class="detail-card">
+          <div class="detail-card-title">📊 Climate Match</div>
+          <div class="detail-row">
+            <span class="detail-row-label">Temperature Fit</span>
+            <span class="detail-row-value">${c.match}%</span>
+          </div>
+          <div class="detail-bar"><div class="detail-bar-fill" style="width:${c.match}%"></div></div>
+          <div class="detail-row mt-8">
+            <span class="detail-row-label">Best Plant Month</span>
+            <span class="detail-row-value">${c.month}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-row-label">Harvest Window</span>
+            <span class="detail-row-value">${c.days}</span>
+          </div>
+        </div>
+        <div class="detail-card">
+          <div class="detail-card-title">💹 Market Analysis</div>
+          <div class="detail-row">
+            <span class="detail-row-label">Estimated Profit</span>
+            <span class="detail-row-value" style="color:#1d6b35;font-size:15px;font-weight:800">${c.profit}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-row-label">Demand Level</span>
+            <span class="detail-row-value">${c.demand}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-row-label">Market Risk</span>
+            <span class="detail-row-value">${c.risk}</span>
+          </div>
+          <div style="font-size:12px;color:#6b8f72;margin-top:8px;line-height:1.5;">${c.supplyTrend}</div>
+        </div>
+        <div class="detail-card">
+          <div class="detail-card-title">⚙️ Effort &amp; Inputs</div>
+          <div class="detail-row">
+            <span class="detail-row-label">Effort Level</span>
+            <span class="detail-row-value">${c.effort}</span>
+          </div>
+          <div class="detail-row">
+            <span class="detail-row-label">Location</span>
+            <span class="detail-row-value">Tagum City</span>
+          </div>
+        </div>
+      </div>
+      <button class="detail-action-btn" data-action="marketplace">
+        🛒 Find Buyers &amp; Create Listing
+      </button>
+      <div style="height:24px"></div>
+    </div>
+  </div>`
+}
+
 // ── Global Event Binding ──────────────────────────────────────────────────────
 function bindViewEvents() {
   const app = document.getElementById('app')
@@ -1828,6 +1899,7 @@ function bindViewEvents() {
     })
   })
 
+  // Market filters
   app.querySelectorAll('.filter-chip').forEach(chip => {
     chip.addEventListener('click', () => {
       app.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'))
