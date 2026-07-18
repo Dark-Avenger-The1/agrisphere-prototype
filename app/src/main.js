@@ -180,6 +180,8 @@ function navigateTo(view, data = null) {
     case 'marketplace':     app.innerHTML = renderMarketplace(); break
     case 'market-detail':   app.innerHTML = renderMarketplaceDetail(); break
     case 'market-create':   app.innerHTML = renderMarketCreate(); break
+    case 'market-filter':   app.innerHTML = renderMarketFilter(); break
+    case 'market-chat':     app.innerHTML = renderMarketChat(); break
     case 'profile':         app.innerHTML = renderProfile(); break
     case 'detail':          app.innerHTML = renderDetail(); break
     default:                app.innerHTML = renderHome(); startNewsSlider()
@@ -628,11 +630,16 @@ function renderMarketplace() {
   const filters = ['All', 'Crop Waste', 'Manure', 'Biochar', 'Compost', 'Feed']
   return `
   <div class="view">
-    <div class="view-header">
-      <button class="back-btn" data-action="home">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+    <div class="view-header" style="justify-content: space-between;">
+      <div style="display:flex; align-items:center; gap:12px;">
+        <button class="back-btn" data-action="home">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <h2>Marketplace</h2>
+      </div>
+      <button class="back-btn" data-action="market-filter" style="flex-shrink:0;">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
       </button>
-      <h2>Marketplace</h2>
     </div>
     <div class="market-filter">
       ${filters.map((f,i) => `<button class="filter-chip ${i===0?'active':''}" data-filter="${f}">${f}</button>`).join('')}
@@ -671,7 +678,7 @@ function renderMarketplace() {
 function renderMarketplaceDetail() {
   const m = currentMarketItem || MARKET_ITEMS[0]
   return `
-  <div class="view" style="background:#f4f7f5;">
+  <div class="view" style="background:#f4f7f5; min-height:100%;">
     <div class="view-header" style="background:#1d6b35; padding-bottom:16px;">
       <button class="back-btn" data-action="marketplace">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
@@ -708,8 +715,62 @@ function renderMarketplaceDetail() {
     </div>
 
     <div style="padding:20px 20px 40px; text-align:center;">
-      <button style="width:100%; max-width:300px; background:#1d6b35; color:#fff; border:none; padding:16px; border-radius:14px; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 4px 14px rgba(29,107,53,0.3);" onclick="showToast('📨 Message channel opened with seller!')">
+      <button class="action-btn-primary" data-action="market-chat" style="width:100%; max-width:300px; background:#1d6b35; color:#fff; border:none; padding:16px; border-radius:14px; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 4px 14px rgba(29,107,53,0.3);">
         Message Seller
+      </button>
+    </div>
+  </div>`
+}
+
+// ── Render: Marketplace Chat ────────────────────────────────────────────────────
+function renderMarketChat() {
+  const m = currentMarketItem || MARKET_ITEMS[0]
+  const sellerName = m.seller.split('·')[0].replace('Farmer: ', '').replace('Processor: ', '').replace('Cooperative: ', '').trim()
+  return `
+  <div class="view" style="background:#f8fbf9; min-height:100%; display:flex; flex-direction:column;">
+    <div class="view-header" style="background:#1d6b35; padding-bottom:16px; flex-shrink:0;">
+      <button class="back-btn" data-action="marketplace">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="width:36px; height:36px; border-radius:50%; background:#fff; display:flex; align-items:center; justify-content:center; font-size:18px;">👨‍🌾</div>
+        <div style="display:flex; flex-direction:column;">
+          <span style="font-size:16px; font-weight:700; color:#fff;">${sellerName}</span>
+          <span style="font-size:11px; color:rgba(255,255,255,0.7);">Online now</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat Body -->
+    <div style="flex:1; padding:20px; overflow-y:auto; display:flex; flex-direction:column; gap:16px;">
+      
+      <!-- System Item summary -->
+      <div style="background:#e4f5ea; border:1px solid #c3e2cc; border-radius:12px; padding:12px; display:flex; align-items:center; gap:12px;">
+        <div style="width:40px; height:40px; background:#fff; border-radius:8px; display:flex; align-items:center; justify-content:center;">📦</div>
+        <div style="flex:1;">
+          <div style="font-size:12px; color:#5a7a62;">Inquiring about:</div>
+          <div style="font-size:14px; font-weight:700; color:#1d6b35;">${m.title} - ${m.price}</div>
+        </div>
+      </div>
+
+      <!-- Seller Message -->
+      <div style="display:flex; gap:10px; align-items:flex-end;">
+        <div style="width:28px; height:28px; border-radius:50%; background:#1d6b35; display:flex; align-items:center; justify-content:center; font-size:14px;">👨‍🌾</div>
+        <div style="background:#fff; border:1px solid #e0ede4; padding:12px 16px; border-radius:18px 18px 18px 4px; font-size:14px; color:#0a1a0f; box-shadow:0 2px 6px rgba(0,0,0,0.02); max-width:80%;">
+          Hi! I saw you're interested in my listing. Are you looking to pick it up this week?
+        </div>
+      </div>
+      
+    </div>
+
+    <!-- Chat Footer -->
+    <div style="background:#fff; border-top:1px solid #e0ede4; padding:12px 20px 20px; display:flex; align-items:center; gap:12px; flex-shrink:0;">
+      <button style="width:40px; height:40px; border-radius:50%; background:#f0f8f2; border:none; display:flex; align-items:center; justify-content:center; color:#1d6b35; cursor:pointer; flex-shrink:0;">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      </button>
+      <input type="text" placeholder="Type a message..." style="flex:1; background:#f4f7f5; border:1px solid #d1dfd5; padding:12px 16px; border-radius:24px; font-size:14px; color:#0a1a0f; outline:none;" />
+      <button style="width:40px; height:40px; border-radius:50%; background:#1d6b35; border:none; display:flex; align-items:center; justify-content:center; color:#fff; cursor:pointer; flex-shrink:0;" onclick="showToast('✅ Message sent!')">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transform:translateX(-1px);"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
       </button>
     </div>
   </div>`
@@ -718,7 +779,7 @@ function renderMarketplaceDetail() {
 // ── Render: Marketplace Create Listing ──────────────────────────────────────────
 function renderMarketCreate() {
   return `
-  <div class="view" style="background:#f4f7f5;">
+  <div class="view" style="background:#f4f7f5; min-height:100%;">
     <div class="view-header" style="background:#1d6b35; padding-bottom:16px;">
       <button class="back-btn" data-action="marketplace">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
@@ -779,6 +840,65 @@ function renderMarketCreate() {
 
       <button style="width:100%; background:#1d6b35; color:#fff; border:none; padding:16px; border-radius:14px; font-size:15px; font-weight:700; margin-top:12px; cursor:pointer; box-shadow:0 4px 14px rgba(29,107,53,0.3);" onclick="showToast('✅ Listing published successfully!'); setTimeout(() => navigateTo('marketplace'), 1000)">
         Publish Listing
+      </button>
+      <div style="height:32px"></div>
+    </div>
+  </div>`
+}
+
+// ── Render: Marketplace Filter ──────────────────────────────────────────────────
+function renderMarketFilter() {
+  return `
+  <div class="view" style="background:#f4f7f5; min-height:100%;">
+    <div class="view-header" style="background:#1d6b35; padding-bottom:16px;">
+      <button class="back-btn" data-action="marketplace">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <h2>Advanced Filters</h2>
+    </div>
+
+    <div style="padding:20px;">
+      <div class="form-group">
+        <label class="form-label">Location</label>
+        <div style="position:relative;">
+          <svg style="position:absolute; left:14px; top:14px; opacity:0.5;" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#1d6b35" stroke-width="2.5" stroke-linecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+          <input type="text" class="form-input" style="padding-left:40px;" placeholder="Search location" value="Tagum City">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Search Radius</label>
+        <select class="form-select">
+          <option>Within 5 km</option>
+          <option selected>Within 15 km</option>
+          <option>Within 50 km</option>
+          <option>Anywhere</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Price Range (₱)</label>
+        <div style="display:flex; gap:12px; align-items:center;">
+          <input type="number" class="form-input" placeholder="Min">
+          <span style="color:#6b8f72; font-weight:bold;">–</span>
+          <input type="number" class="form-input" placeholder="Max">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Certifications</label>
+        <div style="display:flex; flex-direction:column; gap:10px; margin-top:8px;">
+          <label style="display:flex; align-items:center; gap:8px; font-size:14px; color:#1a3320; cursor:pointer;">
+            <input type="checkbox" style="width:18px; height:18px; accent-color:#1d6b35;"> Organic Certified
+          </label>
+          <label style="display:flex; align-items:center; gap:8px; font-size:14px; color:#1a3320; cursor:pointer;">
+            <input type="checkbox" style="width:18px; height:18px; accent-color:#1d6b35;"> LGU Verified Seller
+          </label>
+        </div>
+      </div>
+
+      <button style="width:100%; background:#1d6b35; color:#fff; border:none; padding:16px; border-radius:14px; font-size:15px; font-weight:700; margin-top:20px; cursor:pointer; box-shadow:0 4px 14px rgba(29,107,53,0.3);" onclick="showToast('✅ Filters applied'); setTimeout(() => navigateTo('marketplace'), 800)">
+        Apply Filters
       </button>
       <div style="height:32px"></div>
     </div>
@@ -974,16 +1094,60 @@ function bindViewEvents() {
     })
   })
 
-  // Contact seller
+  // Contact seller from Marketplace cards
   app.querySelectorAll('.market-contact-btn').forEach(btn => {
     btn.addEventListener('click', e => {
       e.stopPropagation()
-      showToast(`📨 Message sent to seller! Qty: ${btn.dataset.qty}`)
+      const card = btn.closest('.market-card')
+      if (card) {
+        const titleEl = card.querySelector('.market-card-title')
+        if (titleEl) {
+          const title = titleEl.innerText
+          currentMarketItem = MARKET_ITEMS.find(m => m.title === title) || MARKET_ITEMS[0]
+        }
+      }
+      navigateTo('market-chat')
     })
+  })
+
+  enableDragScroll()
+}
+
+// ── Drag Scroll ───────────────────────────────────────────────────────────────
+function enableDragScroll() {
+  const sliders = document.querySelectorAll('.market-filter, .market-categories, .news-ticker-wrapper')
+  sliders.forEach(slider => {
+    let isDown = false
+    let startX
+    let scrollLeft
+
+    slider.addEventListener('mousedown', e => {
+      isDown = true
+      startX = e.pageX - slider.offsetLeft
+      scrollLeft = slider.scrollLeft
+      slider.style.cursor = 'grabbing'
+    })
+    slider.addEventListener('mouseleave', () => {
+      isDown = false
+      slider.style.cursor = 'grab'
+    })
+    slider.addEventListener('mouseup', () => {
+      isDown = false
+      slider.style.cursor = 'grab'
+    })
+    slider.addEventListener('mousemove', e => {
+      if (!isDown) return
+      e.preventDefault()
+      const x = e.pageX - slider.offsetLeft
+      const walk = (x - startX) * 2
+      slider.scrollLeft = scrollLeft - walk
+    })
+    // initial state
+    slider.style.cursor = 'grab'
   })
 }
 
-const VALID_VIEWS = ['home','recommendations','scanner','scanner-crop','marketplace','market-detail','market-create','profile','detail']
+const VALID_VIEWS = ['home','recommendations','scanner','scanner-crop','marketplace','market-detail','market-create','market-filter','market-chat','profile','detail']
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 function showToast(msg) {
