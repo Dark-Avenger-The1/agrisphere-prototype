@@ -699,7 +699,7 @@ function renderHome() {
   <div class="view">
     <div class="home-header">
       <div class="home-title-wrapper">
-        <img src="/logo.png" alt="AgriSphere" class="home-logo" />
+        <img src="/favicon.svg" alt="AgriSphere" class="home-logo" />
         <h1>AgriSphere</h1>
       </div>
       <div class="home-location">
