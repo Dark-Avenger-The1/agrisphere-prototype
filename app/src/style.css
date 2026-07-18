@@ -430,14 +430,15 @@ body {
 .crop-card {
   background: rgba(255,255,255,0.95);
   border-radius: 18px;
-  padding: 14px 16px;
+  padding: 14px 12px 14px 14px;
   display: flex;
   align-items: center;
-  gap: 14px;
+  gap: 12px;
   cursor: pointer;
   transition: all 0.22s cubic-bezier(0.34,1.56,0.64,1);
   box-shadow: 0 2px 12px rgba(0,0,0,0.12);
   animation: slideUp 0.4s cubic-bezier(0.34,1.56,0.64,1) both;
+  min-height: 72px;
 }
 .crop-card:nth-child(1) { animation-delay: 0.05s; }
 .crop-card:nth-child(2) { animation-delay: 0.10s; }
@@ -452,47 +453,81 @@ body {
 .crop-card:active { transform: scale(0.97); }
 
 .crop-emoji {
-  width: 50px; height: 50px;
-  border-radius: 14px;
+  width: 46px; height: 46px;
+  border-radius: 12px;
   display: flex; align-items: center; justify-content: center;
-  font-size: 26px;
+  font-size: 24px;
   flex-shrink: 0;
 }
-.crop-info { flex: 1; }
+.crop-info {
+  flex: 1;
+  min-width: 0;       /* allow text to truncate instead of pushing right col */
+  overflow: hidden;
+}
 .crop-name {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 700;
   color: #0a1a0f;
   letter-spacing: -0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.crop-local { font-size: 11px; color: #7a9a80; font-weight: 400; margin-top: 1px; }
+.crop-local { font-size: 11px; color: #7a9a80; font-weight: 400; }
 .crop-meta {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 5px;
   margin-top: 5px;
+  flex-wrap: wrap;
 }
 .crop-meta-item {
-  font-size: 10.5px;
+  font-size: 10px;
   color: #5a7a62;
   background: #f0f8f2;
-  padding: 3px 8px;
+  padding: 3px 7px;
   border-radius: 20px;
   font-weight: 500;
+  white-space: nowrap;
+}
+
+/* Right column — fixed width so badge never wraps */
+.crop-right-col {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 4px;
+  flex-shrink: 0;
+  width: 90px;        /* enough for "High Demand" badge */
 }
 .crop-badge {
   font-size: 10px;
   font-weight: 700;
-  padding: 4px 10px;
+  padding: 4px 9px;
   border-radius: 20px;
-  flex-shrink: 0;
-  letter-spacing: 0.3px;
+  white-space: nowrap;
+  letter-spacing: 0.2px;
+  text-align: center;
+  width: 100%;
+  box-sizing: border-box;
 }
 .badge-high  { background: #e8f5ed; color: #1d6b35; }
 .badge-med   { background: #fff4e6; color: #c0651a; }
 .badge-low   { background: #fef3f2; color: #b91c1c; }
 
-.crop-chevron { color: #c0d4c4; flex-shrink: 0; }
+.crop-match {
+  font-size: 10.5px;
+  color: #5a7a62;
+  font-weight: 600;
+  white-space: nowrap;
+  text-align: right;
+}
+.crop-chevron {
+  color: #c0d4c4;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
 
 /* ════════════════════════════════════════════════ */
 /*  SCANNER VIEW                                    */
@@ -689,12 +724,38 @@ body {
   align-items: center;
   gap: 12px;
   background: #f8fbf9;
-  border-radius: 12px;
-  padding: 12px 14px;
+  border-radius: 14px;
+  padding: 13px 14px;
   border: 1px solid #e0ede4;
-  transition: background 0.15s;
+  transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1);
+  cursor: pointer;
+  position: relative;
 }
-.scan-panel-row:hover { background: #eef7f1; }
+.scan-panel-row:hover {
+  background: #eef7f1;
+  border-color: #1d6b35;
+  transform: translateX(3px);
+  box-shadow: 0 4px 14px rgba(29,107,53,0.1);
+}
+.scan-panel-row:active { transform: scale(0.97); }
+/* Tiny AI chat pill that appears on hover */
+.scan-panel-row::after {
+  content: '✨ Ask AI';
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  font-weight: 700;
+  color: #1d6b35;
+  background: #e2f5e8;
+  padding: 3px 8px;
+  border-radius: 20px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+.scan-panel-row:hover::after { opacity: 1; }
 .scan-panel-emoji { font-size: 22px; flex-shrink: 0; }
 .scan-panel-info { flex: 1; }
 .scan-panel-title {
@@ -709,7 +770,9 @@ body {
   font-weight: 800;
   color: #1d6b35;
   flex-shrink: 0;
+  transition: opacity 0.15s;
 }
+.scan-panel-row:hover .scan-panel-val { opacity: 0; }
 .scan-best-tag {
   font-size: 9px;
   font-weight: 700;
@@ -850,6 +913,112 @@ body {
   background-position: right 14px center;
   background-size: 18px;
   padding-right: 40px;
+}
+
+/* ════════════════════════════════════════════════ */
+/*  RECOMMENDATIONS — FILTER DRAWER                 */
+/* ════════════════════════════════════════════════ */
+.rec-filter-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 7px 14px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  letter-spacing: 0.2px;
+}
+.rec-filter-toggle:hover {
+  background: rgba(255,255,255,0.22);
+}
+.rec-filter-toggle.has-filters {
+  background: #fff;
+  color: #1d6b35;
+  border-color: #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.18);
+}
+
+@keyframes slideDown {
+  from { opacity:0; transform: translateY(-8px); }
+  to   { opacity:1; transform: translateY(0); }
+}
+
+.rec-filter-drawer {
+  background: #fff;
+  margin: 0 20px 4px;
+  border-radius: 18px;
+  padding: 16px 16px 8px;
+  box-shadow: 0 6px 24px rgba(0,0,0,0.1);
+  animation: slideDown 0.22s cubic-bezier(0.34,1.56,0.64,1) both;
+  border: 1px solid #e0ede4;
+}
+
+.rec-filter-group {
+  margin-bottom: 14px;
+}
+
+.rec-filter-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #7a9a80;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 8px;
+}
+
+.rec-filter-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.rec-chip {
+  background: #f4f7f5;
+  border: 1.5px solid #e0ede4;
+  color: #3a6b45;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 13px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.16s ease;
+  white-space: nowrap;
+}
+.rec-chip:hover {
+  border-color: #1d6b35;
+  background: #eef7f1;
+}
+.rec-chip.active {
+  background: #1d6b35;
+  border-color: #1d6b35;
+  color: #fff;
+  box-shadow: 0 3px 10px rgba(29,107,53,0.25);
+}
+
+.rec-clear-btn {
+  display: block;
+  width: 100%;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #b91c1c;
+  background: #fef3f2;
+  border: 1px solid #fde8e8;
+  border-radius: 12px;
+  padding: 10px;
+  cursor: pointer;
+  margin-top: 4px;
+  margin-bottom: 8px;
+  transition: all 0.16s ease;
+}
+.rec-clear-btn:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
 }
 
 /* ════════════════════════════════════════════════ */
