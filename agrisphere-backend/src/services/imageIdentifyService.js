@@ -28,7 +28,7 @@ Respond ONLY with valid JSON, no markdown:
             { inline_data: { mime_type: mimeType, data: base64Image } }
           ]
         }],
-        generationConfig: { maxOutputTokens: 500, temperature: 0.1 }
+        generationConfig: { maxOutputTokens: 1000, temperature: 0.1 }
       },
       { timeout: 25000 }
     );
