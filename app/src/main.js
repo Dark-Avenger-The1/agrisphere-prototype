@@ -1,7 +1,8 @@
 import './style.css'
 import { apiFetch, apiPost, getUserLocation, DEFAULT_LOCATION } from './config.js'
-import { getCached, setCached, seedMarketListings, getMarketListings, addMarketListing } from './storage.js'
+import { getCached, setCached, seedMarketListings, getMarketListings, migrateMarketListings, addMarketListing } from './storage.js'
 import { startCamera, stopCamera, captureFrame, fileToBase64 } from './camera.js'
+import { renderSellerMap, destroySellerMap, renderAllSellersMap } from './map.js'
 
 // ── Mock Data (unchanged — not backed by a live endpoint yet) ─────────────────
 const NEWS = [
@@ -48,6 +49,7 @@ const SEED_MARKET_ITEMS = [
     tags: [{ label: 'Biochar-ready', cls: '' }, { label: 'Air-dried', cls: '' }, { label: 'Pickup avail.', cls: 'gray' }],
     loc: 'Tagum City, 2.3km',
     distance: '2.3km',
+    lat: 7.4478, lng: 125.8078,
   },
   {
     title: 'Coconut Husk Chips',
@@ -57,6 +59,7 @@ const SEED_MARKET_ITEMS = [
     tags: [{ label: 'Compost', cls: '' }, { label: 'Coir fiber', cls: '' }, { label: 'Organic', cls: '' }],
     loc: 'Carmen, Davao, 8.1km',
     distance: '8.1km',
+    lat: 7.6667, lng: 125.8833,
   },
   {
     title: 'Banana Stem Pulp',
@@ -66,6 +69,7 @@ const SEED_MARKET_ITEMS = [
     tags: [{ label: 'Feed additive', cls: '' }, { label: 'Fresh', cls: 'orange' }, { label: 'Limited', cls: 'orange' }],
     loc: 'Panabo City, 14.5km',
     distance: '14.5km',
+    lat: 7.3086, lng: 125.6844,
   },
   {
     title: 'Chicken Manure (Processed)',
@@ -75,6 +79,7 @@ const SEED_MARKET_ITEMS = [
     tags: [{ label: 'Fertilizer', cls: '' }, { label: 'Composted', cls: '' }, { label: 'Certified', cls: '' }],
     loc: 'Sto. Tomas, Davao, 18.2km',
     distance: '18.2km',
+    lat: 7.5333, lng: 125.6167,
   },
 ]
 
@@ -166,7 +171,7 @@ function init() {
   bindNavigation()
 
   seedMarketListings(SEED_MARKET_ITEMS)
-  marketListings = getMarketListings()
+  marketListings = migrateMarketListings(SEED_MARKET_ITEMS)
 
   navigateTo('home')
 
@@ -211,12 +216,15 @@ async function navigateTo(view, data = null) {
   })
 
   const nav = document.getElementById('bottom-nav')
-  nav.style.display = view === 'detail' ? 'none' : 'flex'
+  nav.style.display = (view === 'detail' || view === 'market-map') ? 'none' : 'flex'
 
   const app = document.getElementById('app')
   clearNewsInterval()
   if (view !== 'scanner' && view !== 'scanner-crop') {
     stopActiveCamera()
+  }
+  if (view !== 'market-detail' && view !== 'market-map') {
+    destroySellerMap()
   }
 
   switch (view) {
@@ -250,6 +258,9 @@ async function navigateTo(view, data = null) {
     case 'market-filter':
       app.innerHTML = renderMarketFilter()
       break
+    case 'market-map':
+      app.innerHTML = renderMarketMap()
+      break
     case 'market-chat':
       app.innerHTML = renderMarketChat()
       break
@@ -268,6 +279,8 @@ async function navigateTo(view, data = null) {
   if (view === 'scanner-crop') await bindScannerCropEvents()
   if (view === 'market-create') bindMarketCreateEvents()
   if (view === 'market-chat') bindMarketChatEvents()
+  if (view === 'market-detail') bindMarketDetailEvents()
+  if (view === 'market-map') bindMarketMapEvents()
   bindViewEvents()
 }
 
@@ -1076,9 +1089,14 @@ function renderMarketplace() {
         </button>
         <h2>Marketplace</h2>
       </div>
-      <button class="back-btn" data-action="market-filter" style="flex-shrink:0;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
-      </button>
+      <div style="display:flex; align-items:center; gap:8px; flex-shrink:0;">
+        <button class="back-btn" data-action="market-map" title="View all sellers on map">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
+        </button>
+        <button class="back-btn" data-action="market-filter">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="4" y1="21" x2="4" y2="14"></line><line x1="4" y1="10" x2="4" y2="3"></line><line x1="12" y1="21" x2="12" y2="12"></line><line x1="12" y1="8" x2="12" y2="3"></line><line x1="20" y1="21" x2="20" y2="16"></line><line x1="20" y1="12" x2="20" y2="3"></line><line x1="1" y1="14" x2="7" y2="14"></line><line x1="9" y1="8" x2="15" y2="8"></line><line x1="17" y1="16" x2="23" y2="16"></line></svg>
+        </button>
+      </div>
     </div>
     <div class="market-filter">
       ${filters.map((f, i) => `<button class="filter-chip ${i === 0 ? 'active' : ''}" data-filter="${f}">${f}</button>`).join('')}
@@ -1110,7 +1128,30 @@ function renderMarketplace() {
   </div>`
 }
 
-// ── Render: Marketplace Detail ──────────────────────────────────────────────────
+// ── Render: Marketplace Full Map (all sellers) ──────────────────────────────────
+function renderMarketMap() {
+  const pinnedCount = marketListings.filter(m => m.lat != null && m.lng != null).length
+  return `
+  <div class="view" style="display:flex; flex-direction:column; min-height:100%;">
+    <div class="view-header" style="flex-shrink:0;">
+      <button class="back-btn" data-action="marketplace">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <h2>All Sellers</h2>
+    </div>
+    <p class="view-subtitle" style="margin-top:-4px;">${pinnedCount} listing${pinnedCount === 1 ? '' : 's'} pinned · Tap a marker to view details</p>
+    ${pinnedCount === 0
+      ? `<div style="padding:60px 20px; text-align:center; color:#8aa691; font-size:14px;">No seller locations available yet.</div>`
+      : `<div id="all-sellers-map" style="flex:1; min-height:400px;"></div>`
+    }
+  </div>`
+}
+
+function bindMarketMapEvents() {
+  renderAllSellersMap('all-sellers-map', marketListings)
+}
+
+
 function renderMarketplaceDetail() {
   const m = currentMarketItem || marketListings[0]
   return `
@@ -1135,6 +1176,17 @@ function renderMarketplaceDetail() {
         Location: <strong>${m.loc}</strong>
       </div>
     </div>
+    <div style="background:#fff; border-radius:24px; box-shadow:0 4px 12px rgba(0,0,0,0.04); margin:0 12px 12px; overflow:hidden;">
+      <div style="padding:16px 20px 0;">
+        <h4 style="font-size:14px; font-weight:700; color:#1a3320; margin:0 0 4px; display:flex; align-items:center; gap:6px;">
+          📍 Seller Location
+        </h4>
+      </div>
+      ${m.lat != null && m.lng != null
+        ? `<div id="seller-map" style="height:200px; margin-top:8px;"></div>`
+        : `<div style="padding:24px 20px; text-align:center; color:#8aa691; font-size:13px;">Location pin not available for this listing.</div>`
+      }
+    </div>
     <div style="padding:20px; background:#fff; border-radius:24px; box-shadow:0 4px 12px rgba(0,0,0,0.04); margin:0 12px;">
       <h4 style="font-size:14px; font-weight:700; color:#1a3320; margin:0 0 10px;">About the Seller</h4>
       <div style="display:flex; align-items:center; gap:12px;">
@@ -1151,6 +1203,14 @@ function renderMarketplaceDetail() {
       </button>
     </div>
   </div>`
+}
+
+function bindMarketDetailEvents() {
+  const m = currentMarketItem || marketListings[0]
+  if (!m || m.lat == null || m.lng == null) return
+
+  const sellerName = m.seller.split('·')[0].replace('Farmer: ', '').replace('Processor: ', '').replace('Cooperative: ', '').trim()
+  renderSellerMap('seller-map', m.lat, m.lng, `<strong>${sellerName}</strong><br>${m.title}`)
 }
 
 // ── Render: Marketplace Chat ────────────────────────────────────────────────────
@@ -1321,6 +1381,8 @@ function bindMarketCreateEvents() {
       tags: [{ label: category, cls: '' }],
       loc: `${location}, 0km`,
       distance: '0km',
+      lat: userLocation.lat,
+      lng: userLocation.lng,
     }
 
     marketListings = addMarketListing(listing)
@@ -1563,7 +1625,7 @@ function enableDragScroll() {
   })
 }
 
-const VALID_VIEWS = ['home', 'recommendations', 'ai-chat', 'scanner', 'scanner-crop', 'marketplace', 'market-detail', 'market-create', 'market-filter', 'market-chat', 'profile', 'detail']
+const VALID_VIEWS = ['home', 'recommendations', 'ai-chat', 'scanner', 'scanner-crop', 'marketplace', 'market-detail', 'market-create', 'market-filter', 'market-chat', 'market-map', 'profile', 'detail']
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 function showToast(msg) {
@@ -1579,6 +1641,13 @@ function showToast(msg) {
 // Expose functions used by inline onclick="" handlers in the templates above
 window.showToast = showToast
 window.navigateTo = navigateTo
+window.viewMarketplaceListingFromMap = (title) => {
+  const listing = marketListings.find(m => m.title === title)
+  if (listing) {
+    currentMarketItem = listing
+    navigateTo('market-detail')
+  }
+}
 
 // ── Start ─────────────────────────────────────────────────────────────────────
 init()
