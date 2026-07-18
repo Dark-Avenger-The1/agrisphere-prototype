@@ -40,7 +40,6 @@ export const fetchSeasonalForecast = async (lat, lng) => {
 
     return { location: { latitude, longitude }, monthlyAverages };
   } catch (error) {
-    // Surface the REAL cause instead of a generic axios message
     if (error.response) {
       const wrapped = new Error(`Open-Meteo error: ${JSON.stringify(error.response.data)}`);
       wrapped.statusCode = error.response.status;
@@ -49,3 +48,5 @@ export const fetchSeasonalForecast = async (lat, lng) => {
     throw error;
   }
 };
+
+export default fetchSeasonalForecast;

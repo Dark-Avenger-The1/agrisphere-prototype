@@ -2,19 +2,24 @@ import axios from 'axios';
 
 const BASE_URL = 'http://localhost:5000';
 
-const testCropPrediction = async () => {
+const testBestCropsFinal = async () => {
   try {
-    console.log('Testing crop prediction endpoint...');
+    console.log('Testing best-crops-final endpoint...');
 
-    const response = await axios.get(`${BASE_URL}/trends/get-crop-prediction`, {
-      params: { lat: 7.3, lng: 125.68 },
-      timeout: 20000
+    const response = await axios.get(`${BASE_URL}/trends/best-crops-final`, {
+      params: {
+        lat: 7.45,
+        lng: 125.81,
+        location: 'Tagum City'
+      },
+      timeout: 40000
     });
 
     console.log('✅ Status:', response.status);
     console.log('✅ Message:', response.data.message);
-    console.log('✅ Sample month:', response.data.data.predictions[0]);
-    console.log('✅ Total months returned:', response.data.data.predictions.length);
+    console.log('✅ Location:', response.data.data.location);
+    console.log('✅ Total crops:', response.data.data.crops.length);
+    console.log('✅ Sample crop:', JSON.stringify(response.data.data.crops[0], null, 2));
   } catch (error) {
     if (error.response) {
       console.error('❌ Request failed:', error.response.status, error.response.data);
@@ -24,4 +29,4 @@ const testCropPrediction = async () => {
   }
 };
 
-testCropPrediction();
+testBestCropsFinal();
