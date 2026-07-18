@@ -689,12 +689,38 @@ body {
   align-items: center;
   gap: 12px;
   background: #f8fbf9;
-  border-radius: 12px;
-  padding: 12px 14px;
+  border-radius: 14px;
+  padding: 13px 14px;
   border: 1px solid #e0ede4;
-  transition: background 0.15s;
+  transition: all 0.18s cubic-bezier(0.34,1.56,0.64,1);
+  cursor: pointer;
+  position: relative;
 }
-.scan-panel-row:hover { background: #eef7f1; }
+.scan-panel-row:hover {
+  background: #eef7f1;
+  border-color: #1d6b35;
+  transform: translateX(3px);
+  box-shadow: 0 4px 14px rgba(29,107,53,0.1);
+}
+.scan-panel-row:active { transform: scale(0.97); }
+/* Tiny AI chat pill that appears on hover */
+.scan-panel-row::after {
+  content: '✨ Ask AI';
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 10px;
+  font-weight: 700;
+  color: #1d6b35;
+  background: #e2f5e8;
+  padding: 3px 8px;
+  border-radius: 20px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  pointer-events: none;
+}
+.scan-panel-row:hover::after { opacity: 1; }
 .scan-panel-emoji { font-size: 22px; flex-shrink: 0; }
 .scan-panel-info { flex: 1; }
 .scan-panel-title {
@@ -709,7 +735,9 @@ body {
   font-weight: 800;
   color: #1d6b35;
   flex-shrink: 0;
+  transition: opacity 0.15s;
 }
+.scan-panel-row:hover .scan-panel-val { opacity: 0; }
 .scan-best-tag {
   font-size: 9px;
   font-weight: 700;

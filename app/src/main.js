@@ -127,6 +127,7 @@ const MARKET_ITEMS = [
 let currentView = 'home'
 let currentCrop = null
 let currentMarketItem = null
+let currentAIChatTopic = null
 let currentNewsIdx = 0
 let newsInterval = null
 let scanState = 'idle' // idle | scanning | result
@@ -399,6 +400,105 @@ function renderRecommendations() {
 
 // ── Render: AI Chat ───────────────────────────────────────────────────────────
 function renderAIChat() {
+  const topic = currentAIChatTopic;
+  
+  const topicKnowledge = {
+    'Biochar': {
+      emoji: '⚫',
+      tagline: 'Soil amendment & carbon sequestration',
+      reply: `Great choice! <strong>Biochar</strong> is one of the most profitable ways to use Rice Straw.<br><br>
+        <strong>📋 How to produce it:</strong><br>
+        1. <strong>Dry</strong> the rice straw for 2–3 days under direct sunlight.<br>
+        2. <strong>Pyrolize</strong> it in a low-oxygen kiln or metal drum (350–500°C) for 3–4 hours.<br>
+        3. <strong>Crush & sieve</strong> the resulting charcoal into uniform particles.<br>
+        4. <strong>Bag & sell</strong> at ₱6,200/ton to organic farms and nurseries.<br><br>
+        <strong>💡 Pro Tip:</strong> Biochar from rice straw has a high silica content — ideal for paddy farms. LGU programs in Tagum City often buy in bulk!`,
+    },
+    'Mushroom Farm Substrate': {
+      emoji: '🍄',
+      tagline: 'High-margin, fast-turnaround product',
+      reply: `Excellent pick! <strong>Mushroom Farm Substrate</strong> from Rice Straw is a fast, high-value product.<br><br>
+        <strong>📋 How to produce it:</strong><br>
+        1. <strong>Chop</strong> the rice straw into 3–5cm pieces.<br>
+        2. <strong>Pasteurize</strong> by soaking in hot water (70°C) for 1 hour, then drain.<br>
+        3. <strong>Pack</strong> into polypropylene bags and inoculate with oyster mushroom spawn.<br>
+        4. <strong>Incubate</strong> for 2–3 weeks in a shaded, humid space (80–90% humidity).<br>
+        5. <strong>Sell</strong> the colonized bags or fresh mushrooms at ₱4,500/batch.<br><br>
+        <strong>💡 A buyer is matched 4.2km from you</strong> — check the Marketplace to connect now!`,
+    },
+    'Compost': {
+      emoji: '🌿',
+      tagline: 'Simplest to produce, steady demand',
+      reply: `<strong>Compost</strong> is the easiest entry point for turning Rice Straw into income.<br><br>
+        <strong>📋 How to produce it:</strong><br>
+        1. <strong>Layer</strong> rice straw (carbon) with kitchen scraps or manure (nitrogen) in a 3:1 ratio.<br>
+        2. <strong>Add water</strong> to keep the pile moist (like a wrung-out sponge).<br>
+        3. <strong>Turn</strong> the pile every 5–7 days to add oxygen.<br>
+        4. <strong>Harvest</strong> dark, crumbly compost in 4–8 weeks.<br>
+        5. <strong>Bag & sell</strong> at ₱3,500/ton or use on your own fields.<br><br>
+        <strong>🌱 Savings Estimate:</strong> Using your own compost saves approx. ₱2,000/season in fertilizer costs.`,
+    },
+    'Biochar Briquettes': {
+      emoji: '🧱',
+      tagline: 'Urban fuel & cooking energy source',
+      reply: `<strong>Biochar Briquettes</strong> are a premium, value-added product with strong urban demand.<br><br>
+        <strong>📋 How to produce it:</strong><br>
+        1. <strong>Make biochar</strong> from rice straw (see Biochar process).<br>
+        2. <strong>Grind</strong> the biochar into fine powder.<br>
+        3. <strong>Mix</strong> with a binder (cassava starch or clay, 10–15% ratio).<br>
+        4. <strong>Compress</strong> using a manual or hydraulic briquette press.<br>
+        5. <strong>Dry</strong> under the sun for 1–2 days until hard.<br>
+        6. <strong>Sell</strong> to restaurants, bakeries & households at ₱8,400/ton.<br><br>
+        <strong>🔥 Hot Market:</strong> Davao City urban areas have high demand for sustainable charcoal alternatives.`,
+    },
+    'Organic Fertilizer Mix': {
+      emoji: '🌱',
+      tagline: 'Blended product for nurseries & gardens',
+      reply: `<strong>Organic Fertilizer Mix</strong> combines your compost with other amendments for a premium product.<br><br>
+        <strong>📋 How to produce it:</strong><br>
+        1. <strong>Base:</strong> 60% composted rice straw<br>
+        2. <strong>Enrich:</strong> Add 20% vermicast (worm castings) for nitrogen<br>
+        3. <strong>Boost:</strong> Add 15% carbonized rice hull (CRH) for drainage<br>
+        4. <strong>Activate:</strong> Mix in 5% rock phosphate for phosphorus<br>
+        5. <strong>Bag</strong> in 5kg or 10kg sacks with your branding.<br>
+        6. <strong>Sell</strong> to nurseries & hobby gardens at ₱3,800 per sack.<br><br>
+        <strong>📦 Opportunity:</strong> LGU Tagum has a local procurement program for certified organic fertilizers.`,
+    },
+    'Animal Feed Additive': {
+      emoji: '🥩',
+      tagline: 'Processed silage for livestock farms',
+      reply: `<strong>Animal Feed Additive</strong> (Rice Straw Silage) is a low-effort, reliable revenue stream.<br><br>
+        <strong>📋 How to produce it:</strong><br>
+        1. <strong>Chop</strong> fresh or dried rice straw into 2–3cm segments.<br>
+        2. <strong>Ferment</strong> with molasses (3–5%) and Lactobacillus inoculant in an airtight bag or silo.<br>
+        3. <strong>Seal</strong> completely and store for 21–30 days.<br>
+        4. <strong>Test</strong> for a pleasant, fermented aroma (no foul smell).<br>
+        5. <strong>Sell</strong> to hog and cattle farmers at ₱2,900/sack.<br><br>
+        <strong>🐄 Nearest buyer:</strong> Cattle farms in Carmen, Davao (≈8km) are actively looking for supply!`,
+    },
+  };
+
+  const knowledge = topicKnowledge[topic] || null;
+
+  const userMsgHtml = topic ? `
+      <!-- User Message -->
+      <div style="display:flex; gap:12px; align-items:flex-end; flex-direction:row-reverse; margin-top:8px;">
+        <div style="background:#1d6b35; padding:12px 16px; border-radius:16px 16px 4px 16px; box-shadow:0 2px 8px rgba(29,107,53,0.1); max-width:85%; font-size:14px; color:#fff; line-height:1.5;">
+          Tell me about <strong>${topic}</strong> — how can I produce it from Rice Straw?
+        </div>
+      </div>
+      
+      <!-- AI Reply -->
+      <div style="display:flex; gap:12px; margin-top:12px;">
+        <div style="width:32px; height:32px; border-radius:50%; background:#1d6b35; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"></path><path d="M22 12a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2 2 2 0 0 1 2-2h2a2 2 0 0 1 2 2z"></path><path d="M12 22a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2 2 2 0 0 1 2 2v2a2 2 0 0 1-2 2z"></path><path d="M2 12a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2 2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"></path></svg>
+        </div>
+        <div style="background:#fff; padding:14px 16px; border-radius:4px 16px 16px 16px; box-shadow:0 2px 12px rgba(0,0,0,0.05); max-width:88%; font-size:13.5px; color:#1a3320; line-height:1.65;">
+          ${knowledge ? knowledge.reply : `Great question! <strong>${topic}</strong> is an excellent way to add value to agricultural waste. It involves collecting, processing, and selling your crop residues. Check the Marketplace to connect with buyers nearby!`}
+        </div>
+      </div>
+  ` : '';
+
   return `
   <div class="view" style="background:#f4f7f5; display:flex; flex-direction:column; min-height:100%;">
     <div class="view-header" style="background:#1d6b35; padding:16px 20px 20px; flex-shrink:0;">
@@ -418,12 +518,7 @@ function renderAIChat() {
         </div>
       </div>
       
-      <!-- User Message Placeholder -->
-      <div style="display:none; gap:12px; align-items:flex-end; flex-direction:row-reverse; margin-top:8px;" id="ai-chat-user-msg">
-        <div style="background:#1d6b35; padding:12px 16px; border-radius:16px 16px 4px 16px; box-shadow:0 2px 8px rgba(29,107,53,0.1); max-width:85%; font-size:14px; color:#fff; line-height:1.5;">
-          What is the best way to process Rice Straw?
-        </div>
-      </div>
+      ${userMsgHtml}
 
     </div>
 
@@ -521,7 +616,7 @@ function startScan() {
 
       <!-- Tab content panels -->
       <div class="scan-panel" id="panel-wtv">
-        <div class="scan-panel-row">
+        <div class="scan-panel-row" data-action="ai-chat" data-topic="Biochar">
           <span class="scan-panel-emoji">⚫</span>
           <div class="scan-panel-info">
             <div class="scan-panel-title">Biochar <span class="scan-best-tag">BEST</span></div>
@@ -529,7 +624,7 @@ function startScan() {
           </div>
           <div class="scan-panel-val">₱6,200</div>
         </div>
-        <div class="scan-panel-row">
+        <div class="scan-panel-row" data-action="ai-chat" data-topic="Mushroom Farm Substrate">
           <span class="scan-panel-emoji">🍄</span>
           <div class="scan-panel-info">
             <div class="scan-panel-title">Mushroom Farm Substrate</div>
@@ -537,7 +632,7 @@ function startScan() {
           </div>
           <div class="scan-panel-val">₱4,500</div>
         </div>
-        <div class="scan-panel-row">
+        <div class="scan-panel-row" data-action="ai-chat" data-topic="Compost">
           <span class="scan-panel-emoji">🌿</span>
           <div class="scan-panel-info">
             <div class="scan-panel-title">Compost</div>
@@ -548,7 +643,7 @@ function startScan() {
       </div>
 
       <div class="scan-panel hidden" id="panel-pp">
-        <div class="scan-panel-row">
+        <div class="scan-panel-row" data-action="ai-chat" data-topic="Biochar Briquettes">
           <span class="scan-panel-emoji">🧱</span>
           <div class="scan-panel-info">
             <div class="scan-panel-title">Biochar Briquettes</div>
@@ -556,7 +651,7 @@ function startScan() {
           </div>
           <div class="scan-panel-val">₱8,400</div>
         </div>
-        <div class="scan-panel-row">
+        <div class="scan-panel-row" data-action="ai-chat" data-topic="Organic Fertilizer Mix">
           <span class="scan-panel-emoji">🌱</span>
           <div class="scan-panel-info">
             <div class="scan-panel-title">Organic Fertilizer Mix</div>
@@ -564,7 +659,7 @@ function startScan() {
           </div>
           <div class="scan-panel-val">₱3,800</div>
         </div>
-        <div class="scan-panel-row">
+        <div class="scan-panel-row" data-action="ai-chat" data-topic="Animal Feed Additive">
           <span class="scan-panel-emoji">🥩</span>
           <div class="scan-panel-info">
             <div class="scan-panel-title">Animal Feed Additive</div>
@@ -1095,6 +1190,12 @@ function bindViewEvents() {
           currentMarketItem = MARKET_ITEMS.find(m => m.title === title) || MARKET_ITEMS[0]
         }
         navigateTo('market-detail')
+        return
+      }
+      if (action === 'ai-chat') {
+        const topic = el.dataset.topic
+        currentAIChatTopic = topic || null
+        navigateTo('ai-chat')
         return
       }
       if (VALID_VIEWS.includes(action)) {
