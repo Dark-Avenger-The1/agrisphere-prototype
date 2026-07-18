@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+env/
+*.egg
+*.whl
+build/
+dist/
+.eggs/
+*.so
+.python-version
+
+# Environment files
+.env
+.env.local
+
+# OS files
+Thumbs.db
+.DS_Store
+
+# IDE
+.idea/
+*.swp
+*.swo
+
+# Node
+node_modules/
+
+# Temp
+.tmp/
+tmp/
+
+# Logs
+*.log
