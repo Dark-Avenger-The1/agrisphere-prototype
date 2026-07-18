@@ -60,6 +60,36 @@ export const getMarketListings = () => {
   }
 }
 
+// Patches lat/lng onto listings already sitting in localStorage from before
+// the map feature existed. Matches by title against the current seed data —
+// anything the user actually created themselves (which already has real
+// coordinates) is left untouched.
+export const migrateMarketListings = (seedItems) => {
+  const listings = getMarketListings()
+  if (listings.length === 0) return listings
+
+  let changed = false
+  const migrated = listings.map(listing => {
+    if (listing.lat != null && listing.lng != null) return listing
+    const match = seedItems.find(seed => seed.title === listing.title)
+    if (match) {
+      changed = true
+      return { ...listing, lat: match.lat, lng: match.lng }
+    }
+    return listing
+  })
+
+  if (changed) {
+    try {
+      localStorage.setItem(MARKET_KEY, JSON.stringify(migrated))
+    } catch {
+      // ignore
+    }
+  }
+
+  return migrated
+}
+
 export const addMarketListing = (listing) => {
   const listings = getMarketListings()
   listings.unshift(listing) // newest first
