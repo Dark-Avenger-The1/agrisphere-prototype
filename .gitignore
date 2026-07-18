@@ -27,6 +27,9 @@ Thumbs.db
 *.swp
 *.swo
 
+# Node
+node_modules/
+
 # Temp
 .tmp/
 tmp/
