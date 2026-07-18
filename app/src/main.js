@@ -174,7 +174,7 @@ function navigateTo(view, data = null) {
 
   switch(view) {
     case 'home':            app.innerHTML = renderHome(); startNewsSlider(); break
-    case 'recommendations': app.innerHTML = renderRecommendations(); break
+    case 'ai-chat':         app.innerHTML = renderAIChat(); break
     case 'scanner':         scanState = 'idle'; app.innerHTML = renderScanner(); bindScannerEvents(); break
     case 'scanner-crop':    scanState = 'idle'; app.innerHTML = renderScannerCrop(); bindScannerCropEvents(); break
     case 'marketplace':     app.innerHTML = renderMarketplace(); break
@@ -348,7 +348,7 @@ function renderHome() {
           <div class="opp-data-chip-lbl">Market Risk</div>
         </div>
       </div>
-      <button class="opp-cta" data-action="recommendations">
+      <button class="opp-cta" data-action="ai-chat">
         View Full Recommendation
         <svg class="opp-cta-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
       </button>
@@ -358,34 +358,43 @@ function renderHome() {
   </div>`
 }
 
-// ── Render: Recommendations ───────────────────────────────────────────────────
-function renderRecommendations() {
+// ── Render: AI Chat ───────────────────────────────────────────────────────────
+function renderAIChat() {
   return `
-  <div class="view">
-    <div class="view-header">
-      <button class="back-btn" data-action="home">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
-      </button>
-      <h2>Best to Plant</h2>
+  <div class="view" style="background:#f4f7f5; display:flex; flex-direction:column; min-height:100%;">
+    <div class="view-header" style="background:#1d6b35; padding:16px 20px 20px; flex-shrink:0;">
+      <h2 style="font-size:24px; font-weight:800;">AgriAI Assistant</h2>
+      <div style="font-size:13px; color:rgba(255,255,255,0.7); margin-top:4px;">Ask me anything about farming & waste</div>
     </div>
-    <p class="view-subtitle">AI-ranked crops for Tagum City · Based on temperature &amp; market data</p>
-    <div class="crop-list">
-      ${CROPS.map(c => `
-      <div class="crop-card" data-action="detail" data-crop="${c.name}">
-        <div class="crop-emoji" style="background:${c.bg}">${c.emoji}</div>
-        <div class="crop-info">
-          <div class="crop-name">${c.name}</div>
-          <div class="crop-local">${c.local}</div>
-          <div class="crop-meta">
-            <span class="crop-meta-item">📅 ${c.month}</span>
-            <span class="crop-meta-item">🔥 ${c.price}</span>
-          </div>
+    
+    <div style="flex:1; padding:20px; overflow-y:auto; display:flex; flex-direction:column; gap:16px;">
+      
+      <!-- AI Message -->
+      <div style="display:flex; gap:12px;">
+        <div style="width:32px; height:32px; border-radius:50%; background:#1d6b35; display:flex; align-items:center; justify-content:center; flex-shrink:0;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><path d="M12 2a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2 2 2 0 0 1-2-2V4a2 2 0 0 1 2-2z"></path><path d="M22 12a2 2 0 0 1-2 2h-2a2 2 0 0 1-2-2 2 2 0 0 1 2-2h2a2 2 0 0 1 2 2z"></path><path d="M12 22a2 2 0 0 1-2-2v-2a2 2 0 0 1 2-2 2 2 0 0 1 2 2v2a2 2 0 0 1-2 2z"></path><path d="M2 12a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2 2 2 0 0 1-2 2H4a2 2 0 0 1-2-2z"></path></svg>
         </div>
-        <span class="crop-badge ${c.badge}">${c.demand}</span>
-        <svg class="crop-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
-      </div>`).join('')}
+        <div style="background:#fff; padding:12px 16px; border-radius:4px 16px 16px 16px; box-shadow:0 2px 8px rgba(0,0,0,0.03); max-width:85%; font-size:14px; color:#1a3320; line-height:1.5;">
+          Hello! I'm AgriAI. How can I help you today? I can recommend crops, analyze market trends, or suggest ways to process agricultural waste.
+        </div>
+      </div>
+      
+      <!-- User Message Placeholder -->
+      <div style="display:none; gap:12px; align-items:flex-end; flex-direction:row-reverse; margin-top:8px;" id="ai-chat-user-msg">
+        <div style="background:#1d6b35; padding:12px 16px; border-radius:16px 16px 4px 16px; box-shadow:0 2px 8px rgba(29,107,53,0.1); max-width:85%; font-size:14px; color:#fff; line-height:1.5;">
+          What is the best way to process Rice Straw?
+        </div>
+      </div>
+
     </div>
-    <div style="height:16px"></div>
+
+    <!-- Chat Input Area -->
+    <div style="background:#fff; border-top:1px solid #e0ede4; padding:16px 20px 30px; display:flex; align-items:center; gap:12px; flex-shrink:0;">
+      <input type="text" placeholder="Ask AgriAI..." style="flex:1; background:#f4f7f5; border:1px solid #d1dfd5; padding:14px 16px; border-radius:24px; font-size:15px; color:#0a1a0f; outline:none;" />
+      <button style="width:44px; height:44px; border-radius:50%; background:#1d6b35; border:none; display:flex; align-items:center; justify-content:center; color:#fff; cursor:pointer; flex-shrink:0; box-shadow:0 4px 12px rgba(29,107,53,0.3);" onclick="showToast('💬 AI Chat is in demo mode.')">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="transform:translateX(-1px);"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+      </button>
+    </div>
   </div>`
 }
 
@@ -1147,7 +1156,7 @@ function enableDragScroll() {
   })
 }
 
-const VALID_VIEWS = ['home','recommendations','scanner','scanner-crop','marketplace','market-detail','market-create','market-filter','market-chat','profile','detail']
+const VALID_VIEWS = ['home','ai-chat','scanner','scanner-crop','marketplace','market-detail','market-create','market-filter','market-chat','profile','detail']
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 function showToast(msg) {
