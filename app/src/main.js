@@ -110,6 +110,12 @@ let recommendedCrops = null
 let recommendedCropsLoading = false
 let recommendedCropsError = null
 
+// Recommendation filter / sort state
+let cropFilterDemand = 'All'      // 'All' | 'High Demand' | 'Stable' | 'Low'
+let cropFilterEffort = 'All'       // 'All' | 'Low' | 'Moderate' | 'High'
+let cropFilterRisk   = 'All'       // 'All' | 'Low' | 'Med' | 'High'
+let cropSortBy       = 'rank'      // 'rank' | 'profit' | 'effort' | 'match'
+
 let cropDetailLoading = false
 let cropDetailError = null
 let pendingScanCropName = null   // set by the scan flow before it asks for a fetch
@@ -269,6 +275,7 @@ async function navigateTo(view, data = null) {
   if (view === 'market-create') bindMarketCreateEvents()
   if (view === 'market-chat') bindMarketChatEvents()
   bindViewEvents()
+  if (view === 'recommendations') bindRecommendationFilters()
 }
 
 // ── Load + Render: Recommendations (fetch -> state -> render -> bind) ─────────
@@ -308,6 +315,30 @@ async function loadRecommendations(forceRefresh = false) {
 }
 
 function renderRecommendations() {
+  const demandOpts = ['All', 'High Demand', 'Stable', 'Low']
+  const effortOpts = ['All', 'Low', 'Moderate', 'High']
+  const riskOpts   = ['All', 'Low', 'Med', 'High']
+
+  const chipRow = (label, opts, current, dataKey) => `
+    <div class="rec-filter-group">
+      <div class="rec-filter-label">${label}</div>
+      <div class="rec-filter-chips">
+        ${opts.map(o => `
+          <button class="rec-chip ${current === o ? 'active' : ''}" data-filter="${dataKey}" data-val="${o}">${o}</button>
+        `).join('')}
+      </div>
+    </div>`
+
+  const sortOpts = [
+    { val: 'rank',   label: 'AI Rank' },
+    { val: 'profit', label: 'Profit' },
+    { val: 'effort', label: 'Effort' },
+    { val: 'match',  label: 'Climate Match' },
+  ]
+
+  // count active filters
+  const activeCount = (cropFilterDemand !== 'All' ? 1 : 0) + (cropFilterEffort !== 'All' ? 1 : 0) + (cropFilterRisk !== 'All' ? 1 : 0)
+
   return `
   <div class="view">
     <div class="view-header" style="justify-content: space-between;">
@@ -317,10 +348,33 @@ function renderRecommendations() {
         </button>
         <h2>Best to Plant</h2>
       </div>
-      <button class="back-btn" data-action="refresh-recommendations" title="Refresh recommendations" style="flex-shrink:0;">
-        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-      </button>
+      <div style="display:flex; align-items:center; gap:8px;">
+        <button class="rec-filter-toggle ${activeCount > 0 ? 'has-filters' : ''}" id="rec-filter-toggle">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="11" y1="18" x2="13" y2="18"/></svg>
+          Filter${activeCount > 0 ? ` (${activeCount})` : ''}
+        </button>
+        <button class="back-btn" data-action="refresh-recommendations" title="Refresh" style="flex-shrink:0;">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+        </button>
+      </div>
     </div>
+
+    <!-- Filter Drawer -->
+    <div class="rec-filter-drawer" id="rec-filter-drawer" style="display:none;">
+      ${chipRow('Demand', demandOpts, cropFilterDemand, 'demand')}
+      ${chipRow('Effort Level', effortOpts, cropFilterEffort, 'effort')}
+      ${chipRow('Market Risk', riskOpts, cropFilterRisk, 'risk')}
+      <div class="rec-filter-group">
+        <div class="rec-filter-label">Sort by</div>
+        <div class="rec-filter-chips">
+          ${sortOpts.map(s => `
+            <button class="rec-chip ${cropSortBy === s.val ? 'active' : ''}" data-sort="${s.val}">${s.label}</button>
+          `).join('')}
+        </div>
+      </div>
+      <button class="rec-clear-btn" id="rec-clear-btn">Clear All Filters</button>
+    </div>
+
     <p class="view-subtitle">AI-ranked crops for ${userLocation.location} · Based on temperature &amp; market data</p>
     ${renderRecommendationsBody()}
     <div style="height:32px"></div>
@@ -345,10 +399,49 @@ function renderRecommendationsBody() {
   if (!recommendedCrops || recommendedCrops.length === 0) {
     return `<div style="padding:40px 20px; text-align:center; color:#5a7a62;">No recommendations available right now.</div>`
   }
+
+  // ── Apply Filters ──
+  let crops = [...recommendedCrops]
+
+  if (cropFilterDemand !== 'All') {
+    crops = crops.filter(c => (c.demandLevel || '').toLowerCase().includes(cropFilterDemand.toLowerCase()))
+  }
+  if (cropFilterEffort !== 'All') {
+    crops = crops.filter(c => (c.effortLevel || '').toLowerCase().includes(cropFilterEffort.toLowerCase()))
+  }
+  if (cropFilterRisk !== 'All') {
+    crops = crops.filter(c => (c.marketRisk || '').toLowerCase().includes(cropFilterRisk.toLowerCase()))
+  }
+
+  // ── Apply Sort ──
+  if (cropSortBy === 'profit') {
+    crops.sort((a, b) => {
+      const toNum = s => parseFloat((s || '0').replace(/[^0-9.]/g, '')) || 0
+      return toNum(b.expectedRevenuePerHa) - toNum(a.expectedRevenuePerHa)
+    })
+  } else if (cropSortBy === 'effort') {
+    const rank = s => ({ low: 0, moderate: 1, high: 2 })[(s||'').toLowerCase()] ?? 1
+    crops.sort((a, b) => rank(a.effortLevel) - rank(b.effortLevel))
+  } else if (cropSortBy === 'match') {
+    crops.sort((a, b) => (b.temperatureFit || 0) - (a.temperatureFit || 0))
+  }
+  // 'rank' = original API order (no sort needed)
+
+  if (crops.length === 0) {
+    return `
+    <div style="padding:40px 20px; text-align:center;">
+      <div style="font-size:40px; margin-bottom:12px;">🔍</div>
+      <div style="font-size:15px; font-weight:700; color:#0a1a0f; margin-bottom:6px;">No crops match your filters</div>
+      <div style="font-size:13px; color:#6b8f72;">Try adjusting your filters above.</div>
+    </div>`
+  }
+
   return `
   <div class="crop-list">
-    ${recommendedCrops.map((c, i) => `
-    <div class="crop-card" style="animation-delay: ${i * 0.08}s" data-action="detail" data-crop-index="${i}">
+    ${crops.map((c, i) => {
+      const origIdx = recommendedCrops.indexOf(c)
+      return `
+    <div class="crop-card" style="animation-delay: ${i * 0.06}s" data-action="detail" data-crop-index="${origIdx}">
       <div class="crop-emoji" style="background:#eef7f1">${cropEmoji(c.name)}</div>
       <div class="crop-info">
         <div class="crop-name">${c.name} <span class="crop-local">(${c.localName || ''})</span></div>
@@ -361,14 +454,75 @@ function renderRecommendationsBody() {
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="margin-right:1px"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
             ${(c.expectedRevenuePerHa || '').split('/')[0]}
           </span>
+          ${c.effortLevel ? `<span class="crop-meta-item">${c.effortLevel}</span>` : ''}
         </div>
       </div>
-      <div style="display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex-shrink:0;">
+      <div class="crop-right-col">
         <span class="crop-badge ${demandBadgeClass(c.demandLevel)}">${c.demandLevel || 'N/A'}</span>
+        ${c.temperatureFit ? `<span class="crop-match">${c.temperatureFit}% match</span>` : ''}
         <svg class="crop-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6"/></svg>
       </div>
-    </div>`).join('')}
+    </div>`}).join('')}
   </div>`
+}
+
+function bindRecommendationFilters() {
+  const app = document.getElementById('app')
+  if (!app) return
+
+  // Toggle filter drawer
+  const toggleBtn = document.getElementById('rec-filter-toggle')
+  const drawer    = document.getElementById('rec-filter-drawer')
+  if (toggleBtn && drawer) {
+    toggleBtn.addEventListener('click', () => {
+      const open = drawer.style.display !== 'none'
+      drawer.style.display = open ? 'none' : 'block'
+      if (!open) drawer.style.animation = 'slideDown 0.2s ease both'
+    })
+  }
+
+  // Chip filters
+  app.querySelectorAll('[data-filter]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const key = btn.dataset.filter
+      const val = btn.dataset.val
+      if (key === 'demand') cropFilterDemand = val
+      if (key === 'effort') cropFilterEffort = val
+      if (key === 'risk')   cropFilterRisk   = val
+      app.innerHTML = renderRecommendations()
+      bindViewEvents()
+      bindRecommendationFilters()
+      // Re-open drawer after re-render
+      const d = document.getElementById('rec-filter-drawer')
+      if (d) d.style.display = 'block'
+    })
+  })
+
+  // Sort chips
+  app.querySelectorAll('[data-sort]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      cropSortBy = btn.dataset.sort
+      app.innerHTML = renderRecommendations()
+      bindViewEvents()
+      bindRecommendationFilters()
+      const d = document.getElementById('rec-filter-drawer')
+      if (d) d.style.display = 'block'
+    })
+  })
+
+  // Clear all
+  const clearBtn = document.getElementById('rec-clear-btn')
+  if (clearBtn) {
+    clearBtn.addEventListener('click', () => {
+      cropFilterDemand = 'All'
+      cropFilterEffort = 'All'
+      cropFilterRisk   = 'All'
+      cropSortBy       = 'rank'
+      app.innerHTML = renderRecommendations()
+      bindViewEvents()
+      bindRecommendationFilters()
+    })
+  }
 }
 
 // ── Load + Render: Crop Detail (fetch -> state -> render -> bind) ─────────────
