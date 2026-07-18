@@ -126,6 +126,7 @@ const MARKET_ITEMS = [
 // ── Router State ──────────────────────────────────────────────────────────────
 let currentView = 'home'
 let currentCrop = null
+let currentMarketItem = null
 let currentNewsIdx = 0
 let newsInterval = null
 let scanState = 'idle' // idle | scanning | result
@@ -175,7 +176,10 @@ function navigateTo(view, data = null) {
     case 'home':            app.innerHTML = renderHome(); startNewsSlider(); break
     case 'recommendations': app.innerHTML = renderRecommendations(); break
     case 'scanner':         scanState = 'idle'; app.innerHTML = renderScanner(); bindScannerEvents(); break
+    case 'scanner-crop':    scanState = 'idle'; app.innerHTML = renderScannerCrop(); bindScannerCropEvents(); break
     case 'marketplace':     app.innerHTML = renderMarketplace(); break
+    case 'market-detail':   app.innerHTML = renderMarketplaceDetail(); break
+    case 'market-create':   app.innerHTML = renderMarketCreate(); break
     case 'profile':         app.innerHTML = renderProfile(); break
     case 'detail':          app.innerHTML = renderDetail(); break
     default:                app.innerHTML = renderHome(); startNewsSlider()
@@ -253,7 +257,7 @@ function renderHome() {
         <h3>Best to Plant</h3>
         <p>Data-driven recommendations</p>
       </div>
-      <div class="action-card" data-action="scanner">
+      <div class="action-card" data-action="scanner-crop">
         <div class="action-icon secondary">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
@@ -362,7 +366,7 @@ function renderRecommendations() {
       </button>
       <h2>Best to Plant</h2>
     </div>
-    <p class="view-subtitle">AI-ranked crops for Tagum City · Based on temperature & market data</p>
+    <p class="view-subtitle">AI-ranked crops for Tagum City · Based on temperature &amp; market data</p>
     <div class="crop-list">
       ${CROPS.map(c => `
       <div class="crop-card" data-action="detail" data-crop="${c.name}">
@@ -372,7 +376,7 @@ function renderRecommendations() {
           <div class="crop-local">${c.local}</div>
           <div class="crop-meta">
             <span class="crop-meta-item">📅 ${c.month}</span>
-            <span class="crop-meta-item">💰 ${c.profit}</span>
+            <span class="crop-meta-item">🔥 ${c.price}</span>
           </div>
         </div>
         <span class="crop-badge ${c.badge}">${c.demand}</span>
@@ -435,13 +439,11 @@ function startScan() {
   `
   frame.appendChild(overlay)
 
-  // Step 2: change text
   setTimeout(() => {
     const txt = overlay.querySelector('.scan-processing-text')
     if (txt) txt.textContent = 'Calculating value pathways...'
   }, 1000)
 
-  // Step 3: show result
   setTimeout(() => {
     overlay.remove()
     scanState = 'result'
@@ -454,41 +456,170 @@ function startScan() {
           <span class="scan-result-quality">High Quality · 92% Confidence</span>
         </div>
       </div>
-      <div class="scan-options">
-        <div class="scan-option recommended" data-action="detail" data-crop="Mango">
-          <div class="scan-option-left">
-            <span class="scan-option-emoji">⚫</span>
-            <div>
-              <div class="scan-option-name">Biochar <span class="recommended-tag">BEST</span></div>
-              <div class="scan-option-desc">High carbon value, low effort</div>
-            </div>
-          </div>
-          <div class="scan-option-profit">₱6,200</div>
+
+      <!-- Two toggle tab cards -->
+      <div class="scan-tabs">
+        <div class="scan-tab active" id="tab-wtv" data-tab="wtv">
+          <span class="scan-tab-icon">♻️</span>
+          <span class="scan-tab-label">Waste to Value</span>
         </div>
-        <div class="scan-option" data-action="marketplace">
-          <div class="scan-option-left">
-            <span class="scan-option-emoji">🍄</span>
-            <div>
-              <div class="scan-option-name">Sell to Mushroom Farm</div>
-              <div class="scan-option-desc">Buyer matched 4.2km away</div>
-            </div>
-          </div>
-          <div class="scan-option-profit">₱4,500</div>
+        <div class="scan-tab" id="tab-pp" data-tab="pp">
+          <span class="scan-tab-icon">📦</span>
+          <span class="scan-tab-label">Potential Products</span>
         </div>
-        <div class="scan-option" data-action="marketplace">
-          <div class="scan-option-left">
-            <span class="scan-option-emoji">🌿</span>
-            <div>
-              <div class="scan-option-name">Compost</div>
-              <div class="scan-option-desc">Lowest effort, moderate return</div>
-            </div>
+      </div>
+
+      <!-- Tab content panels -->
+      <div class="scan-panel" id="panel-wtv">
+        <div class="scan-panel-row">
+          <span class="scan-panel-emoji">⚫</span>
+          <div class="scan-panel-info">
+            <div class="scan-panel-title">Biochar <span class="scan-best-tag">BEST</span></div>
+            <div class="scan-panel-desc">High carbon value · Low effort · Ready in 3 days</div>
           </div>
-          <div class="scan-option-profit">₱3,500</div>
+          <div class="scan-panel-val">₱6,200</div>
+        </div>
+        <div class="scan-panel-row">
+          <span class="scan-panel-emoji">🍄</span>
+          <div class="scan-panel-info">
+            <div class="scan-panel-title">Mushroom Farm Substrate</div>
+            <div class="scan-panel-desc">Buyer matched 4.2km away · Fast pickup</div>
+          </div>
+          <div class="scan-panel-val">₱4,500</div>
+        </div>
+        <div class="scan-panel-row">
+          <span class="scan-panel-emoji">🌿</span>
+          <div class="scan-panel-info">
+            <div class="scan-panel-title">Compost</div>
+            <div class="scan-panel-desc">Lowest effort · Moderate return</div>
+          </div>
+          <div class="scan-panel-val">₱3,500</div>
+        </div>
+      </div>
+
+      <div class="scan-panel hidden" id="panel-pp">
+        <div class="scan-panel-row">
+          <span class="scan-panel-emoji">🧱</span>
+          <div class="scan-panel-info">
+            <div class="scan-panel-title">Biochar Briquettes</div>
+            <div class="scan-panel-desc">Compressed fuel blocks · High demand in urban areas</div>
+          </div>
+          <div class="scan-panel-val">₱8,400</div>
+        </div>
+        <div class="scan-panel-row">
+          <span class="scan-panel-emoji">🌱</span>
+          <div class="scan-panel-info">
+            <div class="scan-panel-title">Organic Fertilizer Mix</div>
+            <div class="scan-panel-desc">Blended compost · Sell to nurseries &amp; gardens</div>
+          </div>
+          <div class="scan-panel-val">₱3,800</div>
+        </div>
+        <div class="scan-panel-row">
+          <span class="scan-panel-emoji">🥩</span>
+          <div class="scan-panel-info">
+            <div class="scan-panel-title">Animal Feed Additive</div>
+            <div class="scan-panel-desc">Processed straw silage · Livestock-ready</div>
+          </div>
+          <div class="scan-panel-val">₱2,900</div>
         </div>
       </div>
     </div>`
-    // Re-bind events on new elements
+
+    // Tab toggle logic
+    document.querySelectorAll('.scan-tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.scan-tab').forEach(t => t.classList.remove('active'))
+        document.querySelectorAll('.scan-panel').forEach(p => p.classList.add('hidden'))
+        tab.classList.add('active')
+        document.getElementById('panel-' + tab.dataset.tab).classList.remove('hidden')
+      })
+    })
+
     bindViewEvents()
+  }, 2200)
+}
+
+// ── Render: Scanner Crop (Risk Analyzer) ────────────────────────────────────────
+function renderScannerCrop() {
+  return `
+  <div class="view scanner-view">
+    <div class="scanner-header">
+      <h2>Crop Risk Analyzer</h2>
+      <p>Scan crops to evaluate climate fit and market risk</p>
+    </div>
+
+    <div class="scanner-frame" id="scanner-frame-crop">
+      <div class="scanner-corners"><span></span></div>
+      <div class="scanner-line"></div>
+      <svg class="scan-placeholder-icon" width="52" height="52" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+      <span class="scan-placeholder-text">Point camera at growing crop</span>
+    </div>
+    <p class="scanner-label">Ensure the leaves and fruit (if any) are clearly visible.</p>
+
+    <div class="scanner-actions">
+      <button class="scanner-btn-primary" id="btn-scan-crop">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+        Scan Now
+      </button>
+      <button class="scanner-btn-secondary" id="btn-upload-crop">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Upload
+      </button>
+    </div>
+    <div id="scan-result-area-crop"></div>
+    <div style="height:16px"></div>
+  </div>`
+}
+
+function bindScannerCropEvents() {
+  document.getElementById('btn-scan-crop')?.addEventListener('click', startScanCrop)
+  document.getElementById('btn-upload-crop')?.addEventListener('click', startScanCrop)
+}
+
+function startScanCrop() {
+  const frame = document.getElementById('scanner-frame-crop')
+  if (!frame || scanState === 'scanning') return
+  scanState = 'scanning'
+
+  // Show processing overlay
+  const overlay = document.createElement('div')
+  overlay.className = 'scan-processing'
+  overlay.innerHTML = `
+    <div class="scan-spinner"></div>
+    <div class="scan-processing-text">Analyzing plant features...</div>
+    <div class="scan-processing-sub">Matching with crop database</div>
+  `
+  frame.appendChild(overlay)
+
+  setTimeout(() => {
+    const txt = overlay.querySelector('.scan-processing-text')
+    if (txt) txt.textContent = 'Pulling market data...'
+  }, 1000)
+
+  setTimeout(() => {
+    overlay.remove()
+    scanState = 'result'
+    const resultArea = document.getElementById('scan-result-area-crop')
+    if(resultArea) {
+      resultArea.innerHTML = `
+      <div class="scan-result">
+        <div class="scan-result-header">
+          <span class="scan-result-icon">🥭</span>
+          <div>
+            <div class="scan-result-name">Mango Identified</div>
+            <span class="scan-result-quality">Davao Variety · 98% Confidence</span>
+          </div>
+        </div>
+        <p style="font-size:12px; color:#5a7a62; margin-top:8px;">Analyzing risk factors and climate match...</p>
+      </div>`
+    }
+
+    // Redirect to detail view after short delay
+    setTimeout(() => {
+      const mango = CROPS.find(c => c.name === 'Mango')
+      if (mango) navigateTo('detail', mango)
+    }, 1200)
+
   }, 2200)
 }
 
@@ -526,7 +657,131 @@ function renderMarketplace() {
         </div>
       </div>`).join('')}
     </div>
+    
+    <!-- Floating Action Button -->
+    <button class="fab-btn" data-action="market-create">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+    
     <div style="height:16px"></div>
+  </div>`
+}
+
+// ── Render: Marketplace Detail ──────────────────────────────────────────────────
+function renderMarketplaceDetail() {
+  const m = currentMarketItem || MARKET_ITEMS[0]
+  return `
+  <div class="view" style="background:#f4f7f5;">
+    <div class="view-header" style="background:#1d6b35; padding-bottom:16px;">
+      <button class="back-btn" data-action="marketplace">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <h2>Listing Details</h2>
+    </div>
+
+    <!-- Product Image Placeholder -->
+    <div style="background:#e0ede4; height:200px; display:flex; align-items:center; justify-content:center;">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#aabdae" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    </div>
+
+    <div style="padding:20px; background:#fff; border-radius:0 0 24px 24px; box-shadow:0 4px 12px rgba(0,0,0,0.04); margin-bottom:12px;">
+      <h3 style="font-size:22px; font-weight:800; color:#0a1a0f; margin:0 0 6px;">${m.title}</h3>
+      <div style="font-size:20px; font-weight:700; color:#1d6b35; margin-bottom:14px;">${m.price}</div>
+      <div style="display:flex; flex-wrap:wrap; gap:6px; margin-bottom:16px;">
+        ${m.tags.map(t => `<span class="market-tag ${t.cls}">${t.label}</span>`).join('')}
+      </div>
+      <div style="font-size:13px; color:#5a7a62; line-height:1.5;">
+        Available Quantity: <strong>${m.qty}</strong><br>
+        Location: <strong>${m.loc}</strong>
+      </div>
+    </div>
+
+    <div style="padding:20px; background:#fff; border-radius:24px; box-shadow:0 4px 12px rgba(0,0,0,0.04); margin:0 12px;">
+      <h4 style="font-size:14px; font-weight:700; color:#1a3320; margin:0 0 10px;">About the Seller</h4>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <div style="width:44px; height:44px; border-radius:50%; background:#1d6b35; display:flex; align-items:center; justify-content:center; font-size:20px; color:#fff;">👨‍🌾</div>
+        <div>
+          <div style="font-size:14px; font-weight:600; color:#0a1a0f;">${m.seller.split('·')[0].trim()}</div>
+          <div style="font-size:12px; color:#6b8f72;">Verified AgriSphere Member</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="padding:20px 20px 40px; text-align:center;">
+      <button style="width:100%; max-width:300px; background:#1d6b35; color:#fff; border:none; padding:16px; border-radius:14px; font-size:15px; font-weight:700; cursor:pointer; box-shadow:0 4px 14px rgba(29,107,53,0.3);" onclick="showToast('📨 Message channel opened with seller!')">
+        Message Seller
+      </button>
+    </div>
+  </div>`
+}
+
+// ── Render: Marketplace Create Listing ──────────────────────────────────────────
+function renderMarketCreate() {
+  return `
+  <div class="view" style="background:#f4f7f5;">
+    <div class="view-header" style="background:#1d6b35; padding-bottom:16px;">
+      <button class="back-btn" data-action="marketplace">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <h2>List an Item</h2>
+    </div>
+
+    <div style="padding:20px;">
+      <div class="form-group">
+        <label class="form-label">Title / Item Name</label>
+        <input type="text" class="form-input" placeholder="e.g. Dry Rice Straw">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select class="form-select">
+          <option>Crop Waste</option>
+          <option>Manure</option>
+          <option>Biochar</option>
+          <option>Compost</option>
+          <option>Feed Additive</option>
+        </select>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px;">
+        <div class="form-group">
+          <label class="form-label">Price (₱)</label>
+          <input type="number" class="form-input" placeholder="0.00">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Unit</label>
+          <select class="form-select">
+            <option>per ton</option>
+            <option>per sack</option>
+            <option>per bag</option>
+            <option>per kg</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Available Quantity</label>
+        <input type="text" class="form-input" placeholder="e.g. 5 tons">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Location / Pickup details</label>
+        <input type="text" class="form-input" placeholder="e.g. Tagum City, near public market" value="Tagum City">
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Add Photos</label>
+        <div style="height:90px; border:2px dashed #b5cdbe; border-radius:12px; display:flex; align-items:center; justify-content:center; color:#1d6b35; background:#eef7f1; cursor:pointer;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+          <span style="margin-left:8px; font-weight:600; font-size:14px;">Upload Image</span>
+        </div>
+      </div>
+
+      <button style="width:100%; background:#1d6b35; color:#fff; border:none; padding:16px; border-radius:14px; font-size:15px; font-weight:700; margin-top:12px; cursor:pointer; box-shadow:0 4px 14px rgba(29,107,53,0.3);" onclick="showToast('✅ Listing published successfully!'); setTimeout(() => navigateTo('marketplace'), 1000)">
+        Publish Listing
+      </button>
+      <div style="height:32px"></div>
+    </div>
   </div>`
 }
 
@@ -666,7 +921,12 @@ function bindViewEvents() {
         return
       }
       if (action === 'marketplace-detail') {
-        showToast('📨 Opening contact channel...')
+        const titleEl = el.querySelector('.market-card-title')
+        if (titleEl) {
+          const title = titleEl.innerText
+          currentMarketItem = MARKET_ITEMS.find(m => m.title === title) || MARKET_ITEMS[0]
+        }
+        navigateTo('market-detail')
         return
       }
       if (VALID_VIEWS.includes(action)) {
@@ -723,7 +983,7 @@ function bindViewEvents() {
   })
 }
 
-const VALID_VIEWS = ['home','recommendations','scanner','marketplace','profile','detail']
+const VALID_VIEWS = ['home','recommendations','scanner','scanner-crop','marketplace','market-detail','market-create','profile','detail']
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
 function showToast(msg) {
