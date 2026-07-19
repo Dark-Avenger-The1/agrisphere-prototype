@@ -4,10 +4,10 @@ export const identifyImage = async (base64Image, mimeType) => {
   const prompt = `You are an agricultural identification assistant for Philippine farms.
 
 Look at this image and identify ONE of the following:
-- A growing crop/plant (category: "crop")
-- Harvested agricultural waste/byproduct like rice straw, corn stalks, banana waste, husks, etc. (category: "waste")
+- A crop or agricultural produce (category: "crop") — this includes a growing plant in soil, a harvested fruit or vegetable, produce held in someone's hand, produce sitting on a table or in a basket, or any other clear view of an edible crop, regardless of whether it's still growing or already harvested.
+- Harvested agricultural waste/byproduct (category: "waste") — things like rice straw, corn stalks, banana peels/stems, husks, or other leftover plant material that is NOT the edible/sellable part of the crop.
 
-If you cannot confidently identify either, say so honestly — do not guess.
+If you cannot confidently identify either a crop or agricultural waste in the image, say so honestly — do not guess.
 
 Respond ONLY with valid JSON, no markdown:
 {
